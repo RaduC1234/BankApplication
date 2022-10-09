@@ -1,8 +1,8 @@
 package me.raducapatina.server.data;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import me.raducapatina.server.core.ServerInstance;
 import me.raducapatina.server.util.Log;
+import me.raducapatina.server.util.ResourceServerProperties;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,7 +17,7 @@ public class DatabaseManager {
      * @throws IllegalStateException if an account with this username already exists.
      */
     public static Account createNewAccountAndUpload(String username, String password, String ownerName, Account.MerchantType type, boolean sysAdmin) throws IllegalStateException{
-        File file = new File(ServerInstance.databasePath + "\\" + username + ".json");
+        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
 
         if (file.exists()) {
             throw new IllegalStateException("Cannot create new user with username: \"" + username + "\" Reason: Username already exists.");
@@ -44,7 +44,7 @@ public class DatabaseManager {
      * @throws IllegalStateException if an account with this username already exists.
      */
     public static void uploadNewAccount(Account account) throws IllegalStateException {
-        File file = new File(ServerInstance.databasePath + "\\" + account.getUsername() + ".json");
+        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + account.getUsername() + ".json");
 
         if (file.exists()) {
             throw new IllegalStateException("Cannot create new user with username: \"" + account.getUsername() + "\" Reason: Username already exists.");
@@ -62,7 +62,7 @@ public class DatabaseManager {
      * @throws IllegalStateException if the instance with the given username does not exist.
      */
     public static void updateInstanceToDatabase(Account account) throws IllegalStateException {
-        File file = new File(ServerInstance.databasePath + "\\" + account.getUsername() + ".json");
+        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + account.getUsername() + ".json");
 
         if (file.exists()) {
             throw new IllegalStateException("Cannot update database. Reason: Username: \"" + account.getUsername() + "\" does not exist.");
@@ -80,7 +80,7 @@ public class DatabaseManager {
      * @return requested data or null if {@link IOException} is thrown.
      */
     public static Account getInstanceFromDatabase(String username) throws IllegalStateException {
-        File file = new File(ServerInstance.databasePath + "\\" + username + ".json");
+        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
         if(!file.exists()) {
             throw new IllegalStateException("Cannot update database. Reason: Username: \"" + username + "\" does not exist.");
         }
@@ -91,5 +91,13 @@ public class DatabaseManager {
             Log.error(e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * @return true if user exists, false otherwise.
+     */
+    public static boolean userExists(String username) {
+        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
+        return file.exists();
     }
 }

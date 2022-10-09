@@ -3,6 +3,9 @@ package me.raducapatina.server.util;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * @author Radu
+ */
 public class Log {
 
     public static void message(String message, String sender){
