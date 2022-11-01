@@ -15,7 +15,7 @@ public class ResourceServerMessages extends ResourceBundle {
     }
 
     protected ResourceServerMessages() {
-       BUNDLE = ResourceBundle.getBundle("ServerMessage", locale);
+       BUNDLE = ResourceBundle.getBundle("server_message", locale);
     }
 
     public void setLocale(Locale locale) {

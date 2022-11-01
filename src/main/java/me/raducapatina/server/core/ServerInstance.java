@@ -1,10 +1,12 @@
 package me.raducapatina.server.core;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import me.raducapatina.server.command.StopCommand;
+import me.raducapatina.server.command.UserCommand;
 import me.raducapatina.server.command.core.CommandHandler;
 import me.raducapatina.server.util.Log;
 import me.raducapatina.server.util.ResourceServerMessages;
@@ -26,15 +28,14 @@ public class ServerInstance {
 
     public void start() {
 
-        Log.info(ResourceServerMessages.getObjectAsString("core.startingServer")); // Starting server...
+        Log.info(ResourceServerMessages.getObjectAsString("core.startingServer").replace("{0}", String.valueOf(port)));
 
         commandHandler = new CommandHandler()
-                //.addCommand(new UserCommand())
+                .addCommand(new UserCommand())
                 //.addCommand(new LoginCommand())
                 //.addCommand(new BalanceCommand())
                 .addCommand(new StopCommand(this));
-                //.addCommand(new DisconnectCommand())
-
+        //.addCommand(new DisconnectCommand())
 
         commandHandler.listen();
 
@@ -45,8 +46,11 @@ public class ServerInstance {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new ServerChannelHandler(this));
+                    .childHandler(new ServerChannelHandler(this))
+                    .option(ChannelOption.SO_BACKLOG, 128)          // (5)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
 
+            Log.info(ResourceServerMessages.getObjectAsString("core.finishedLoading"));
             b.bind(port).sync().channel().closeFuture().sync();
         } catch (InterruptedException e) {
             stop();

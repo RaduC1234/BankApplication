@@ -8,8 +8,8 @@ public abstract class Command {
 
     public String description = "no description available";
 
-    public String arguments = null;
+    public String input = null;
 
-    public abstract void execute();
+    public abstract void execute() throws Exception;
 
 }

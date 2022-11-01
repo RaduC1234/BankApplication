@@ -1,4 +1,4 @@
-package me.raducapatina.server.request.core;
+package me.raducapatina.server.request;
 
 import io.netty.channel.ChannelHandlerContext;
 import me.raducapatina.server.core.Client;

@@ -9,6 +9,6 @@ public class LoginCommand extends Command {
 
     @Override
     public void execute() {
-        String[] args = this.arguments.split(" ");
+        String[] args = this.input.split(" ");
     }
 }

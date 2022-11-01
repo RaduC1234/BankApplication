@@ -5,6 +5,8 @@ import me.raducapatina.server.util.Log;
 import me.raducapatina.server.util.ResourceServerProperties;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.UUID;
 
@@ -99,5 +101,17 @@ public class DatabaseManager {
     public static boolean userExists(String username) {
         File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
         return file.exists();
+    }
+
+    /**
+     * Deletes specified user
+     * @throws FileNotFoundException if the user does not exists
+     */
+    public static void deleteUser(String username) throws FileNotFoundException {
+        if(!userExists(username)) {
+            throw new FileNotFoundException();
+        }
+        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
+        file.delete();
     }
 }

@@ -46,8 +46,12 @@ public class CommandHandler {
                 for (Command command : commands) {
                     if (consoleLine.startsWith(command.name)) {
                         commandFound = true;
-                        command.arguments = consoleLine.replace(command.name, "");
-                        command.execute();
+                        command.input = consoleLine;
+                        try {
+                            command.execute();
+                        } catch (Exception e) {
+                            Log.error(e.getMessage());
+                        }
                     }
                 }
                 if (consoleLine.startsWith("help")) {
