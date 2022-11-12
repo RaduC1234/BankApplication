@@ -1,43 +1,43 @@
 package me.raducapatina.server.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.netty.channel.*;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
+import me.raducapatina.server.data.Account;
 import me.raducapatina.server.data.DatabaseManager;
-import me.raducapatina.server.request.MessageChannel;
-import me.raducapatina.server.request.Request;
 import me.raducapatina.server.util.Log;
 import me.raducapatina.server.util.ResourceServerMessages;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
 
 /**
  * @author Radu 1/11/22
  */
 public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
-    private volatile Client client;
+    private final Client client;
     private final ServerInstance instance;
-    private RequestChannelHandler channelHandler;
+    private final RequestChannelHandler channelHandler;
 
     public ServerChannelHandler(ServerInstance instance) {
         this.instance = instance;
         this.client = new Client();
         this.channelHandler = new RequestChannelHandler();
-        this.channelHandler.addRequests(
-                new AuthenticationRequest(this.client),
-                new UnknownRequest()
-        );
+        this.channelHandler
+                .addRequestTemplate("AUTHENTICATION", new AuthenticationTemplate(this.client));
+
     }
 
     @Override
@@ -62,7 +62,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             protected void channelRead0(ChannelHandlerContext channelHandlerContext, String s) throws Exception {
                 //new MessageChannel(channelHandlerContext).sendMessage(s);
                 Log.message(s, client.getAddress().getAddress().getHostAddress());
-                channelHandler.handleRequest(new MessageChannel(channelHandlerContext), s);
+                channelHandler.onMessage(channelHandlerContext, s);
             }
 
             @Override
@@ -91,182 +91,112 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
     /**
      * The request system works like REST but without using HTTP. The procedure is
      * make up of one "question" and one "answer". Works the same for outbound and inbound
-     * requests.
+     * requestsTemplates.
      *
      * @author Radu
      */
-    private class RequestChannelHandler {
+    private static class RequestChannelHandler {
 
-        // atomic = thread-safe
-        private AtomicReference<Request> outboundRequest = null; // request that the server is sending -> 0
-        private Request inboundRequest = null; // request that the server is receiving -> 1
-        private boolean giveAllChannel = false;
-        private volatile List<Request> registeredRequests;
+        private Map<String, RequestTemplate> requestsTemplates = new HashMap();
+        private List<Packet> waitingOutboundPackets = new ArrayList<>();
 
         public RequestChannelHandler() {
-            registeredRequests = new ArrayList<>(0);
+
         }
 
-        public RequestChannelHandler addRequest(Request request) {
-            registeredRequests.add(request);
+        public RequestChannelHandler addRequestTemplate(String name, RequestTemplate template) {
+            requestsTemplates.put(name, template);
             return this;
         }
 
-        public RequestChannelHandler addRequests(Request... requests) {
-            for(Request thisReq : requests)
-                addRequest(thisReq);
-            return this;
-        }
-
-        public void sendRequest(String requestType, MessageChannel ctx) throws IllegalArgumentException {
-            for (Request request : registeredRequests) {
-                if(request.requestType.equalsIgnoreCase(requestType)) {
-                    request.sendRequest(ctx);
-                    return;
-                }
-            }
-            throw new IllegalArgumentException("Invalid request name");
-        }
-
-        public void handleRequest(MessageChannel channelHandlerContext, String string) {
-
-            if (giveAllChannel) {
-                // inboundRequest = new EchoRequest(this);
-                inboundRequest.onAllChannelContext(channelHandlerContext, string);
-                return;
-            }
-
+        public void onMessage(ChannelHandlerContext channelHandlerContext, String message) {
             try {
-                String requestType = getRequestType(string);
-                boolean requestStatus = getRequestStatus(string);
+                Packet receivedPacket = new ObjectMapper().readValue(message, Packet.class);
+                receivedPacket.setChannelHandlerContext(channelHandlerContext);
 
-                // checking to see if the message is an answer to an existing request
-                if (requestStatus && outboundRequest == null) {
-                    // the client send an answer to a nonexistent request --> disconnect
-                    channelHandlerContext.sendMessage(Request.error("UNKNOWN", 104));
-                    return;
-                }
-
-                if (requestStatus && outboundRequest != null) {
-                    // if the request is an answer, and we are waiting for answers
-                    outboundRequest.get().onAnswer(channelHandlerContext, string);
-                    outboundRequest = null;
-                    return;
-                }
-
-                for (Request request : registeredRequests) {
-                    if (requestType.equals(request.requestType)) {
-                        inboundRequest = request;
-                        request.onIncomingRequest(channelHandlerContext, string);
-                        break;
+                // check if the packet is an answer to an inbound request
+                if (receivedPacket.getRequestStatus()) {
+                    for (Packet packet : waitingOutboundPackets) {
+                        if (packet.getRequestId() == receivedPacket.getRequestId()) {
+                            requestsTemplates.get(packet.getRequestName()).onAnswer(receivedPacket);
+                            waitingOutboundPackets.remove(packet);
+                            return;
+                        }
                     }
+                    // throw error: no request found
                 }
-                throw new IllegalStateException();
+
+                // packet is a new request at this point
+                if (requestsTemplates.get(receivedPacket.getRequestName()) == null) {
+                    // throw error: no request with this name found
+                    return;
+                }
+
+                requestsTemplates.get(receivedPacket.getRequestName()).onIncomingRequest(receivedPacket);
 
             } catch (JsonProcessingException e) {
-                //
-                // throw error 001 = Request Syntax Error
+                Log.error(e.getMessage());
             }
         }
+
+        public void sendRequest(String name, ChannelHandlerContext ctx) throws IllegalArgumentException {
+            if (requestsTemplates.get(name) == null)
+                throw new IllegalArgumentException("No request template found with passed name");
+            Packet packet = new Packet(name, ctx);
+            requestsTemplates.get(name).onNewRequest(packet);
+            waitingOutboundPackets.add(packet);
+        }
     }
 
-    private String getRequestType(String text) throws JsonProcessingException {
-        final ObjectNode node = new ObjectMapper().readValue(text, ObjectNode.class);
-        return node.get("requestType").asText();
+    public interface RequestTemplate {
+
+        void onNewRequest(Packet packet);
+
+        void onAnswer(Packet packet);
+
+        void onIncomingRequest(Packet packet);
     }
 
-    private boolean getRequestStatus(String text) throws JsonProcessingException {
-        final ObjectNode node = new ObjectMapper().readValue(text, ObjectNode.class);
-        return node.get("requestStatus").asBoolean();
-    }
+    public class AuthenticationTemplate implements RequestTemplate {
 
-    /**
-     * Proof of concept that request handler is working. To stop send 'stop' to the
-     * server. Note: use only in debug and when you may need the channel as a stream.
-     */
-    private class EchoRequest extends Request {
+        private Client client;
 
-        private RequestChannelHandler localChannelHandler;
+        public AuthenticationTemplate(Client client) {
 
-        public EchoRequest(RequestChannelHandler localChannelHandler) {
-            this.localChannelHandler = localChannelHandler;
-            requestType = "ECHO";
+            this.client = client;
         }
 
         @Override
-        public void onIncomingRequest(MessageChannel ctx, String message) {
-            localChannelHandler.giveAllChannel = true;
-        }
-
-        @Override
-        public void sendRequest(MessageChannel ctx) {
+        public void onNewRequest(Packet packet) {
 
         }
 
         @Override
-        public void onAnswer(MessageChannel ctx, String string) {
+        public void onAnswer(Packet packet) {
 
         }
 
         @Override
-        public void onAllChannelContext(MessageChannel ctx, String message) {
-            if (!(message.charAt(0) == '\\')) {
-                ctx.sendMessage(message);
-                Log.info(message);
+        public void onIncomingRequest(Packet packet) {
+            String username = packet.getRequestContent().get("username").asText();
+            String password = packet.getRequestContent().get("password").asText();
+
+            if (!DatabaseManager.userExists(username)) {
+                packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
+            }
+
+            Account account = DatabaseManager.getInstanceFromDatabase(username);
+
+            if (account.getPassword().equals(password)) {
+                this.client.setAuthenticated(true);
+                this.client.setAccount(account);
+                Log.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
+                        .replace("{0}", client.getAddress().toString())
+                        .replace("{1}", account.getUsername()));
+                packet.sendSuccess();
                 return;
             }
-            localChannelHandler.giveAllChannel = false;
-        }
-    }
-
-    private class AuthenticationRequest extends Request {
-
-        public AuthenticationRequest(Client client) {
-            requestType = "AUTHENTICATION";
-        }
-
-        @Override
-        public void onIncomingRequest(MessageChannel ctx, String message) throws JsonProcessingException {
-            final ObjectNode node = new ObjectMapper().readValue(message, ObjectNode.class);
-            JsonNode requestContent = node.get("requestContent");
-            String username = requestContent.get("username").asText();
-            if (!DatabaseManager.userExists(username)) {
-                ctx.sendMessage(error(this.requestType, 100));
-            }
-            client.setAccount(DatabaseManager.getInstanceFromDatabase(username));
-            client.setAuthenticated(true);
-            ctx.sendMessage(success(this.requestType, 103));
-        }
-
-        @Override
-        public void sendRequest(MessageChannel ctx) {
-
-        }
-
-        @Override
-        public void onAnswer(MessageChannel ctx, String string) {
-
-        }
-    }
-
-    private class UnknownRequest extends Request {
-        public UnknownRequest() {
-            requestType = "UNKNOWN";
-        }
-
-        @Override
-        public void onIncomingRequest(MessageChannel ctx, String message) throws JsonProcessingException {
-
-        }
-
-        @Override
-        public void sendRequest(MessageChannel ctx) {
-
-        }
-
-        @Override
-        public void onAnswer(MessageChannel ctx, String string) {
-
+            packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD); // invalid password
         }
     }
 }

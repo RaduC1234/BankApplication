@@ -4,7 +4,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author Radu
+ * Simple logger class because I don't have time for better implementation.
+ * @author Radu 21.05.2020
  */
 public class Log {
 
