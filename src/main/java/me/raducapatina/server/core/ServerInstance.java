@@ -8,14 +8,18 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import me.raducapatina.server.command.StopCommand;
 import me.raducapatina.server.command.UserCommand;
 import me.raducapatina.server.command.core.CommandHandler;
-import me.raducapatina.server.util.Log;
+import me.raducapatina.server.util.HibernateUtil;
 import me.raducapatina.server.util.ResourceServerMessages;
 import me.raducapatina.server.util.ResourceServerProperties;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ServerInstance {
+
+    private static final Logger logger = LogManager.getLogger(ServerInstance.class);
 
     private final int port;
     private volatile List<Client> connectedClients;
@@ -28,17 +32,24 @@ public class ServerInstance {
 
     public void start() {
 
-        Log.info(ResourceServerMessages.getObjectAsString("core.startingServer").replace("{0}", String.valueOf(port)));
+        logger.info(ResourceServerMessages.getObjectAsString("core.startingServer").replace("{0}", String.valueOf(port)));
 
         commandHandler = new CommandHandler()
-                .addCommand(new UserCommand())
-                //.addCommand(new LoginCommand())
-                //.addCommand(new BalanceCommand())
-                .addCommand(new StopCommand(this));
-        //.addCommand(new DisconnectCommand())
+                .addCommand(new StopCommand(this))
+                .addCommand(new UserCommand());
 
         commandHandler.listen();
 
+        try {
+            logger.info("Connecting to database...");
+            HibernateUtil.getSessionFactory().openSession();
+            logger.info("Successfully connected to database.");
+        } catch (Exception e) {
+            logger.fatal(e.getMessage());
+            stop();
+        }
+
+        logger.info("Starting Network Service...");
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
 
@@ -47,10 +58,10 @@ public class ServerInstance {
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ServerChannelHandler(this))
-                    .option(ChannelOption.SO_BACKLOG, 128)          // (5)
+                    .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            Log.info(ResourceServerMessages.getObjectAsString("core.finishedLoading"));
+            logger.info(ResourceServerMessages.getObjectAsString("core.finishedLoading"));
             b.bind(port).sync().channel().closeFuture().sync();
         } catch (InterruptedException e) {
             stop();
@@ -61,8 +72,9 @@ public class ServerInstance {
     }
 
     public void stop() {
-        Log.info(ResourceServerMessages.getObjectAsString("core.stoppingServer")); // Stopping server...
+        logger.info(ResourceServerMessages.getObjectAsString("core.stoppingServer")); // Stopping server...
         commandHandler.stop();
+        HibernateUtil.getSessionFactory().close();
         System.exit(0);
     }
 

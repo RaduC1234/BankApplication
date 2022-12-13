@@ -1,117 +1,33 @@
 package me.raducapatina.server.data;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import me.raducapatina.server.util.Log;
-import me.raducapatina.server.util.ResourceServerProperties;
+import me.raducapatina.server.util.HibernateUtil;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.UUID;
+import javax.persistence.Query;
+import javax.persistence.EntityManager;
 
-/**
- * Represents the placeholder class for the nonSQL database
- */
 public class DatabaseManager {
 
-    /**
-     * @throws IllegalStateException if an account with this username already exists.
-     */
-    public static Account createNewAccountAndUpload(String username, String password, String ownerName, Account.MerchantType type, boolean sysAdmin) throws IllegalStateException{
-        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
+    private final static Logger logger = LogManager.getLogger(DatabaseManager.class);
+    private static DatabaseManager instance = new DatabaseManager();
 
-        if (file.exists()) {
-            throw new IllegalStateException("Cannot create new user with username: \"" + username + "\" Reason: Username already exists.");
-        }
-        Account account = new Account(
-                username,
-                password,
-                ownerName,
-                String.valueOf(UUID.randomUUID()),
-                type,
-                sysAdmin
-        );
+    private DatabaseManager() {}
 
-        try {
-            new ObjectMapper().writeValue(file, account);
-        } catch (IOException e) {
-            Log.error(e.getMessage());
-        }
-
-        return account;
+    public static synchronized DatabaseManager getInstance() {
+        return instance;
     }
 
-    /**
-     * @throws IllegalStateException if an account with this username already exists.
-     */
-    public static void uploadNewAccount(Account account) throws IllegalStateException {
-        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + account.getUsername() + ".json");
-
-        if (file.exists()) {
-            throw new IllegalStateException("Cannot create new user with username: \"" + account.getUsername() + "\" Reason: Username already exists.");
-        }
-
-        try {
-            new ObjectMapper().writeValue(file, account);
-        } catch (IOException e) {
-            Log.error(e.getMessage());
-        }
+    public UserService getUserService() {
+        return new UserService(getEntityManager());
     }
 
-    /**
-     * The method directly overrides the current user file with a new one.
-     * @throws IllegalStateException if the instance with the given username does not exist.
-     */
-    public static void updateInstanceToDatabase(Account account) throws IllegalStateException {
-        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + account.getUsername() + ".json");
-
-        if (file.exists()) {
-            throw new IllegalStateException("Cannot update database. Reason: Username: \"" + account.getUsername() + "\" does not exist.");
-        }
-
-        try {
-            new ObjectMapper().writeValue(file, account);
-        } catch (IOException e) {
-            Log.error(e.getMessage());
-        }
+    public Query createSQLNativeQuery(String query) {
+       return getEntityManager().createNativeQuery(query);
     }
 
-    /**
-     * @throws IllegalStateException if the instance with the given username does not exist.
-     * @return requested data or null if {@link IOException} is thrown.
-     */
-    public static Account getInstanceFromDatabase(String username) throws IllegalStateException {
-        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
-        if(!file.exists()) {
-            throw new IllegalStateException("Cannot update database. Reason: Username: \"" + username + "\" does not exist.");
-        }
-
-        try {
-            return new ObjectMapper().readValue(file, Account.class);
-        } catch (IOException e) {
-            Log.error(e.getMessage());
-        }
-        return null;
+    public synchronized EntityManager getEntityManager() {
+        return HibernateUtil.getSessionFactory().openSession().getEntityManagerFactory().createEntityManager();
     }
 
-    /**
-     * @return true if user exists, false otherwise.
-     */
-    public static boolean userExists(String username) {
-        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
-        return file.exists();
-    }
-
-    /**
-     * Deletes specified user
-     * @throws FileNotFoundException if the user does not exists
-     */
-    public static void deleteUser(String username) throws FileNotFoundException {
-        if(!userExists(username)) {
-            throw new FileNotFoundException();
-        }
-        File file = new File(ResourceServerProperties.getInstance().getObject("databasePath") + "\\" + username + ".json");
-        file.delete();
-    }
 }

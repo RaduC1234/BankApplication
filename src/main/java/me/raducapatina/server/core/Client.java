@@ -1,22 +1,21 @@
 package me.raducapatina.server.core;
 
-import me.raducapatina.server.data.Account;
+import me.raducapatina.server.data.User;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
 public class Client {
 
-    private Account account = null;
+    private User user = null;
     private InetSocketAddress address;
     private boolean isAuthenticated;
 
-    public Account getAccount() {
-        return account;
+    public User getAccount() {
+        return user;
     }
 
-    public Client setAccount(Account account) {
-        this.account = account;
+    public Client setAccount(User user) {
+        this.user = user;
         return this;
     }
 

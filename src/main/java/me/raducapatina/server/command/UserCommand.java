@@ -1,74 +1,67 @@
 package me.raducapatina.server.command;
 
 import me.raducapatina.server.command.core.Command;
-import me.raducapatina.server.data.Account;
 import me.raducapatina.server.data.DatabaseManager;
-import me.raducapatina.server.util.Log;
-import me.raducapatina.server.util.ResourceServerMessages;
-import me.raducapatina.server.util.ResourceServerProperties;
+import me.raducapatina.server.data.User;
+import me.raducapatina.server.data.UserService;
+import me.raducapatina.server.data.UserType;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import javax.xml.crypto.Data;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.concurrent.ExecutionException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserCommand extends Command {
 
+    private static final Logger logger = LogManager.getLogger(UserCommand.class);
+
     public UserCommand() {
         this.name = "user";
-        this.description = ResourceServerMessages.getObjectAsString("command.user.description");
-        this.usage = ResourceServerMessages.getObjectAsString("command.user.usage");
+        this.description = "Command for basic user management.";
+        this.usage = "user [delete/add] <username> | <password> <Type[USER,STUDENT,ADMIN]>";
     }
 
     @Override
     public void execute() throws Exception {
-        String[] args = input.split(" ");
+        String args[] = input.split(" ");
         switch (args[1]) {
             case "add": {
-                DatabaseManager.createNewAccountAndUpload(
-                        args[2],
-                        args[3],
-                        args[4],
-                        Account.MerchantType.valueOf(args[5]), //TODO: fix default state
-                        Boolean.getBoolean(args[6]));
-                Log.info(ResourceServerMessages.getObjectAsString("command.runSuccess"));
+                User user = new User();
+                user.setUsername(args[2]);
+                user.setPassword(args[3]);
+                user.setType(UserType.valueOf(args[4]));
+
+                UserService userService = DatabaseManager.getInstance().getUserService();
+
+                if (userService.existsByUsername(user.getUsername())) {
+                    logger.error("Error: User already exists.");
+                    return;
+                }
+                userService.add(user);
+                logger.info("New user created with the following properties: \n" +
+                        "Username--> '" + user.getUsername() + "'\n" +
+                        "Password--> '" + user.getPassword() + "'\n" +
+                        "User type--> '" + user.getType().toString() + "'"
+                );
                 break;
             }
             case "delete": {
-                try {
-                    DatabaseManager.deleteUser(args[2]);
-                    Log.info(ResourceServerMessages.getObjectAsString("command.runSuccess"));
-                } catch (FileNotFoundException exception) {
-                    Log.error(ResourceServerMessages.getObjectAsString("command.user.notExists"));
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                if(userService.deleteByUsername((args[2]))) {
+                    logger.info("User successfully deleted.");
                 }
                 break;
             }
-            case "update": {
-                Account account = DatabaseManager.getInstanceFromDatabase(args[2]);
-                if (!args[3].equalsIgnoreCase("D"))
-                    account.setPassword(args[3]);
-                if (!args[3].equalsIgnoreCase("D"))
-                    account.setOwnerName(args[4]);
-                if (!args[3].equalsIgnoreCase("D"))
-                    account.setMerchantType(Account.MerchantType.valueOf(args[5])); //TODO: fix default state
-                if (!args[3].equalsIgnoreCase("D"))
-                    account.setSysAdmin(Boolean.getBoolean(args[6]));
+            case "list": {
+                ArrayList<User> select_a_from_user_a = (ArrayList<User>) DatabaseManager.getInstance().getEntityManager().createQuery("SELECT a FROM User a", User.class).getResultList();
+                StringBuilder builder = new StringBuilder();
+                for(User user : select_a_from_user_a) {
+                    builder.append("Id: " + user.getId() + ". Username: " + user.getUsername() + ". Password: " + user.getPassword() + ". Type:" + user.getType() + "\n");
+                }
+                logger.info("\n" + builder);
                 break;
             }
-
-            case "list" : {
-                File mainDir = new File(ResourceServerProperties.getInstance().getObject("databasePath").toString());
-                String[] files = mainDir.list();
-                if(files.length == 0){
-                    Log.info(ResourceServerMessages.getObjectAsString("command.noUsersInDatabase"));
-                }
-                for(String file : files) {
-                    Log.info("User -> " + DatabaseManager.getInstanceFromDatabase(file.replace(".json", "")).getUsername());
-                }
-                break;
-            }
-            default:
-                Log.error(ResourceServerMessages.getObjectAsString("command.syntaxError"));
+            default: logger.error("Syntax error.");
         }
     }
 }

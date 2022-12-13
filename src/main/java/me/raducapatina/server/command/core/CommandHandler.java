@@ -1,7 +1,8 @@
 package me.raducapatina.server.command.core;
 
-import me.raducapatina.server.util.Log;
 import me.raducapatina.server.util.ResourceServerMessages;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,6 +13,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CommandHandler {
+
+    private static final Logger logger = LogManager.getLogger(CommandHandler.class);
 
     private ExecutorService service = Executors.newSingleThreadExecutor();
     private List<Command> commands;
@@ -50,7 +53,7 @@ public class CommandHandler {
                         try {
                             command.execute();
                         } catch (Exception e) {
-                            Log.error(e.getMessage());
+                            logger.error(e.getMessage());
                         }
                     }
                 }
@@ -59,12 +62,12 @@ public class CommandHandler {
                     for (Command command : commands) {
                         row.append(command.name).append(" -> ").append(command.usage).append("\n");
                     }
-                    Log.info(ResourceServerMessages.getObjectAsString("command.help.listAll").replace("{0}", row));
+                    logger.info(ResourceServerMessages.getObjectAsString("command.help.listAll").replace("{0}", row));
                     continue;
                 }
 
                 if (!commandFound) {
-                    Log.warn(ResourceServerMessages.getObjectAsString("command.help.unknown"));
+                    logger.warn(ResourceServerMessages.getObjectAsString("command.help.unknown"));
                 }
 
             }
