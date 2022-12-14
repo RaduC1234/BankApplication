@@ -12,6 +12,7 @@ import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
+import lombok.NoArgsConstructor;
 import me.raducapatina.server.data.DatabaseManager;
 import me.raducapatina.server.data.User;
 import me.raducapatina.server.data.UserService;
@@ -22,6 +23,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.persistence.NoResultException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,16 +37,14 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
     private static final Logger logger = LogManager.getLogger(ServerChannelHandler.class);
     private static final Level MESSAGE = Level.forName("MESSAGE", 450);
 
-    private final Client client;
     private final ServerInstance instance;
     private final RequestChannelHandler channelHandler;
 
     public ServerChannelHandler(ServerInstance instance) {
         this.instance = instance;
-        this.client = new Client();
         this.channelHandler = new RequestChannelHandler();
         this.channelHandler
-                .addRequestTemplate("AUTHENTICATION", new Authentication(this.client));
+                .addRequestTemplate("AUTHENTICATION", new Authentication());
     }
 
     @Override
@@ -61,6 +61,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             public void channelActive(ChannelHandlerContext ctx) throws Exception {
                 logger.info(ResourceServerMessages.getObjectAsString("core.clientConnected").replace("{0}",
                         ctx.channel().remoteAddress().toString()));
+                Client client = new Client();
                 client.setAddress((InetSocketAddress) ctx.channel().remoteAddress());
                 instance.getConnectedClients().add(client);
             }
@@ -68,17 +69,18 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             @Override
             protected void channelRead0(ChannelHandlerContext channelHandlerContext, String s) throws Exception {
                 //new MessageChannel(channelHandlerContext).sendMessage(s);
-                logger.log(MESSAGE, client.getAddress().getAddress().getHostAddress() + " says " + s);
+                logger.log(MESSAGE, channelHandlerContext.channel().remoteAddress().toString() + " says " + s);
                 channelHandler.onMessage(channelHandlerContext, s);
             }
 
             @Override
             public void channelInactive(ChannelHandlerContext ctx) throws Exception {
                 ctx.close();
+                Client client = getClientByRemoteAddress(ctx.channel().remoteAddress());
                 instance.getConnectedClients().remove(client);
                 logger.info(ResourceServerMessages.getObjectAsString("core.clientDisconnectedReason")
                         .replace("{0}",
-                                (client.isAuthenticated() ? client.getAccount().getUsername()
+                                (client.isAuthenticated() ? client.getUser().getUsername()
                                         : ctx.channel().remoteAddress().toString()))
                         .replace("{1}", "The connection was closed by the remote host"));
             }
@@ -88,11 +90,20 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
                 if (!socketChannel.isOpen()) {
                     ctx.close();
+                    Client client = getClientByRemoteAddress(ctx.channel().remoteAddress());
                     instance.getConnectedClients().remove(client);
                     logger.error(cause.getMessage());
                 }
             }
         });
+    }
+
+    public Client getClientByRemoteAddress(SocketAddress remoteAddress) throws NoSuchFieldException {
+        for (Client client : instance.getConnectedClients()) {
+            if (client.getAddress().equals(remoteAddress))
+                return client;
+        }
+        throw new NoSuchFieldException("No client found with this address");
     }
 
     /**
@@ -102,14 +113,12 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
      *
      * @author Radu
      */
-    private static class RequestChannelHandler {
+    @NoArgsConstructor
+    private class RequestChannelHandler {
 
         private Map<String, RequestTemplate> requestsTemplates = new HashMap();
         private List<Packet> waitingOutboundPackets = new ArrayList<>();
 
-        public RequestChannelHandler() {
-
-        }
 
         public RequestChannelHandler addRequestTemplate(String name, RequestTemplate template) {
             requestsTemplates.put(name, template);
@@ -120,6 +129,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             try {
                 Packet receivedPacket = new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(message, Packet.class);
                 receivedPacket.setChannelHandlerContext(channelHandlerContext);
+                receivedPacket.setClient(getClientByRemoteAddress(channelHandlerContext.channel().remoteAddress()));
 
                 // check if the packet is an answer to an inbound request
                 if (receivedPacket.getRequestStatus()) {
@@ -143,7 +153,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
                 requestsTemplates.get(receivedPacket.getRequestName()).onIncomingRequest(receivedPacket);
 
-            } catch (JsonProcessingException e) {
+            } catch (JsonProcessingException | NoSuchFieldException e) {
                 logger.error(e.getMessage());
             }
         }
@@ -166,14 +176,8 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
         void onIncomingRequest(Packet packet);
     }
 
+    @NoArgsConstructor
     public class Authentication implements RequestTemplate {
-
-        private Client client;
-
-        public Authentication(Client client) {
-
-            this.client = client;
-        }
 
         @Override
         public void onNewRequest(Packet packet) {
@@ -185,26 +189,32 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
         }
 
+
+        //todo: fix SQL injection
         @Override
         public void onIncomingRequest(Packet packet) {
             String username = packet.getRequestContent().get("username").asText();
             String password = packet.getRequestContent().get("password").asText();
 
+            Client client = packet.getClient();
             UserService userService = DatabaseManager.getInstance().getUserService();
             User user;
             try {
                 user = userService.findByUsername(username);
+
             } catch (NoResultException e) {
                 packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
                 return;
+
             } catch (Exception e) {
+                packet.sendError(Packet.PACKET_CODES.ERROR);
                 logger.error(e);
                 return;
             }
 
             if (user.getPassword().equals(password)) {
-                this.client.setAuthenticated(true);
-                this.client.setAccount(user);
+                client.setAuthenticated(true);
+                client.setUser(user);
                 logger.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
                         .replace("{0}", client.getAddress().toString())
                         .replace("{1}", user.getUsername()));

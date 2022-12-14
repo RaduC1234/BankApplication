@@ -1,13 +1,14 @@
 package me.raducapatina.server.data;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
 import javax.persistence.*;
 import java.io.Serializable;
 
-@Setter
 @Getter
+@Setter
 @Entity
 @Table(name = "users")
 @NamedQueries({
@@ -24,7 +25,6 @@ public class User implements Serializable {
 
     @Column(nullable = false)
     private String password;
-
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)

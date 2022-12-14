@@ -1,11 +1,14 @@
 package me.raducapatina.server.core;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -16,7 +19,12 @@ public class Packet {
     private boolean requestStatus;
     private long requestId;
     private JsonNode requestContent;
+
+    @JsonIgnore
     private ChannelHandlerContext channelHandlerContext;
+
+    @Setter @Getter @JsonIgnore
+    private Client client;
 
     public Packet() {
     }
@@ -78,6 +86,7 @@ public class Packet {
         UNKNOWN_REQUEST,
         REQUEST_SYNTAX_ERROR,
 
+        USER_IN_USE,
         USER_NOT_FOUND,
         INVALID_PASSWORD,
     }

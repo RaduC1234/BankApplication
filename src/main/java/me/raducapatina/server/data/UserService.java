@@ -7,7 +7,6 @@ import org.apache.logging.log4j.Logger;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 
-//todo: fix SQL injection
 @AllArgsConstructor
 public class UserService implements Service<User> {
 

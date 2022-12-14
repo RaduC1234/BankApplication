@@ -1,39 +1,30 @@
 package me.raducapatina.server.core;
 
+import lombok.*;
+import me.raducapatina.server.data.DatabaseManager;
 import me.raducapatina.server.data.User;
 
-import java.net.InetSocketAddress;
+import javax.persistence.NoResultException;
+import java.net.SocketAddress;
 
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Client {
 
+    // id
+    private SocketAddress address;
     private User user = null;
-    private InetSocketAddress address;
-    private boolean isAuthenticated;
+    private boolean isAuthenticated = false;
 
-    public User getAccount() {
-        return user;
-    }
-
-    public Client setAccount(User user) {
-        this.user = user;
-        return this;
-    }
-
-    public InetSocketAddress getAddress() {
-        return address;
-    }
-
-    public Client setAddress(InetSocketAddress address) {
-        this.address = address;
-        return this;
-    }
-
-    public boolean isAuthenticated() {
-        return isAuthenticated;
-    }
-
-    public Client setAuthenticated(boolean authenticated) {
-        isAuthenticated = authenticated;
-        return this;
+    /**
+     * @throws Exception if the user does not exit in the database. Very unlikely.
+     */
+    public void reloadUser() throws Exception {
+        if(user == null) {
+            return;
+        }
+            this.user = DatabaseManager.getInstance().getUserService().findById(getUser().getId());
     }
 }
