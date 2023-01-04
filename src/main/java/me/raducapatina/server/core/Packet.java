@@ -36,7 +36,8 @@ public class Packet {
         this.requestId = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
     }
 
-    public ChannelFuture sendThis() throws Exception {
+    public ChannelFuture sendThis(boolean status) throws Exception {
+        this.requestStatus = status;
         return this.channelHandlerContext.writeAndFlush(this.toJson() + "\r\n");
     }
 
@@ -86,6 +87,7 @@ public class Packet {
         UNKNOWN_REQUEST,
         REQUEST_SYNTAX_ERROR,
 
+        NOT_AUTHENTICATED,
         USER_IN_USE,
         USER_NOT_FOUND,
         INVALID_PASSWORD,

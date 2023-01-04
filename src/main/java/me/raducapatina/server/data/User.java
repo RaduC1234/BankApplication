@@ -1,11 +1,14 @@
 package me.raducapatina.server.data;
 
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.Hibernate;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.LinkedHashSet;
+import java.util.Objects;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -30,6 +33,22 @@ public class User implements Serializable {
     @Enumerated(EnumType.STRING)
     private UserType type;
 
-   /* @ManyToMany(mappedBy = "users")
-    private Set<Subject> subjects;*/
+    @ManyToMany(cascade = CascadeType.DETACH)
+    @JoinTable(name = "users_subjects",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "subjects_id"))
+    private Set<Subject> subjects = new LinkedHashSet<>();
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        User user = (User) o;
+        return id != null && Objects.equals(id, user.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

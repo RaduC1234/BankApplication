@@ -4,6 +4,7 @@ import java.util.Enumeration;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
+@Deprecated
 public class ResourceServerMessages extends ResourceBundle {
 
     private static ResourceServerMessages INSTANCE = new ResourceServerMessages();

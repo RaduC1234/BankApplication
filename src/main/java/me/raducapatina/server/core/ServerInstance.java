@@ -5,6 +5,8 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import lombok.AccessLevel;
+import lombok.Getter;
 import me.raducapatina.server.command.StopCommand;
 import me.raducapatina.server.command.UserCommand;
 import me.raducapatina.server.command.core.CommandHandler;
@@ -21,8 +23,8 @@ public class ServerInstance {
 
     private static final Logger logger = LogManager.getLogger(ServerInstance.class);
 
-    private final int port;
-    private volatile List<Client> connectedClients;
+    @Getter(AccessLevel.PUBLIC) private final int port;
+    @Getter(AccessLevel.PUBLIC) private volatile List<Client> connectedClients;
     private CommandHandler commandHandler;
 
     public ServerInstance() {
@@ -77,9 +79,4 @@ public class ServerInstance {
         HibernateUtil.getSessionFactory().close();
         System.exit(0);
     }
-
-    public List<Client> getConnectedClients() {
-        return connectedClients;
-    }
-
 }

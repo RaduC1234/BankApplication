@@ -2,7 +2,9 @@ package me.raducapatina.server.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -44,7 +46,8 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
         this.instance = instance;
         this.channelHandler = new RequestChannelHandler();
         this.channelHandler
-                .addRequestTemplate("AUTHENTICATION", new Authentication());
+                .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication())
+                .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo());
     }
 
     @Override
@@ -116,7 +119,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
     @NoArgsConstructor
     private class RequestChannelHandler {
 
-        private Map<String, RequestTemplate> requestsTemplates = new HashMap();
+        private Map<String, RequestTemplate> requestsTemplates = new HashMap<>();
         private List<Packet> waitingOutboundPackets = new ArrayList<>();
 
 
@@ -147,7 +150,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 // packet is a new request at this point
                 if (requestsTemplates.get(receivedPacket.getRequestName()) == null) {
                     // throw error: no request with this name found
-                    logger.error("Invalid request name.");
+                    logger.error("Invalid request name: " + receivedPacket.getRequestName());
                     return;
                 }
 
@@ -158,89 +161,107 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public void sendRequest(String name, ChannelHandlerContext ctx) throws IllegalArgumentException {
+        public void sendRequest(String name, ChannelHandlerContext ctx, Object[] params) throws IllegalArgumentException {
             if (requestsTemplates.get(name) == null)
                 throw new IllegalArgumentException("No request template found with passed name");
             Packet packet = new Packet(name, ctx);
-            requestsTemplates.get(name).onNewRequest(packet);
+            requestsTemplates.get(name).onNewRequest(packet, params);
             waitingOutboundPackets.add(packet);
         }
-    }
 
-    public interface RequestTemplate {
+        public interface RequestTemplate {
 
-        void onNewRequest(Packet packet);
+            void onNewRequest(Packet packet, Object[] params);
 
-        void onAnswer(Packet packet);
+            void onAnswer(Packet packet);
 
-        void onIncomingRequest(Packet packet);
-    }
-
-    @NoArgsConstructor
-    public class Authentication implements RequestTemplate {
-
-        @Override
-        public void onNewRequest(Packet packet) {
-
+            void onIncomingRequest(Packet packet);
         }
 
-        @Override
-        public void onAnswer(Packet packet) {
+        @NoArgsConstructor
+        public static class Authentication implements RequestTemplate {
 
-        }
+            @Override
+            public void onNewRequest(Packet packet, Object[] params) {
 
-
-        //todo: fix SQL injection
-        @Override
-        public void onIncomingRequest(Packet packet) {
-            String username = packet.getRequestContent().get("username").asText();
-            String password = packet.getRequestContent().get("password").asText();
-
-            Client client = packet.getClient();
-            UserService userService = DatabaseManager.getInstance().getUserService();
-            User user;
-            try {
-                user = userService.findByUsername(username);
-
-            } catch (NoResultException e) {
-                packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
-                return;
-
-            } catch (Exception e) {
-                packet.sendError(Packet.PACKET_CODES.ERROR);
-                logger.error(e);
-                return;
             }
 
-            if (user.getPassword().equals(password)) {
-                client.setAuthenticated(true);
-                client.setUser(user);
-                logger.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
-                        .replace("{0}", client.getAddress().toString())
-                        .replace("{1}", user.getUsername()));
-                packet.sendSuccess();
-                return;
+            @Override
+            public void onAnswer(Packet packet) {
+
             }
 
-            packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD); // invalid password
+
+            //todo: fix SQL injection
+            @Override
+            public void onIncomingRequest(Packet packet) {
+                String username = packet.getRequestContent().get("username").asText();
+                String password = packet.getRequestContent().get("password").asText();
+
+                Client client = packet.getClient();
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                User user;
+                try {
+                    user = userService.findByUsername(username);
+
+                } catch (NoResultException e) {
+                    packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
+                    return;
+
+                } catch (Exception e) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                    logger.error(e);
+                    return;
+                }
+
+                if (user.getPassword().equals(password)) {
+                    client.setAuthenticated(true);
+                    client.setUser(user);
+                    logger.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
+                            .replace("{0}", client.getAddress().toString())
+                            .replace("{1}", user.getUsername()));
+                    packet.sendSuccess();
+                    return;
+                }
+
+                packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD); // invalid password
+            }
         }
-    }
 
-    public class SelfInfo implements RequestTemplate {
+        public static class GetSelfInfo implements RequestTemplate {
 
-        @Override
-        public void onNewRequest(Packet packet) {
+            @Override
+            public void onNewRequest(Packet packet, Object[] params) {
 
-        }
+            }
 
-        @Override
-        public void onAnswer(Packet packet) {
+            @Override
+            public void onAnswer(Packet packet) {
 
-        }
+            }
 
-        @Override
-        public void onIncomingRequest(Packet packet) {
+            @Override
+            public void onIncomingRequest(Packet packet) {
+                if (!packet.getClient().isAuthenticated()) {
+                    packet.sendError(Packet.PACKET_CODES.NOT_AUTHENTICATED);
+                    return;
+                }
 
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                User user;
+                try {
+                    user = userService.findByUsername(packet.getClient().getUser().getUsername());
+                    packet.setRequestContent(new JsonMapper().convertValue(user, JsonNode.class));
+                    packet.sendThis(true);
+
+                } catch (NoResultException e) {
+                    packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
+
+                } catch (Exception e) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                    logger.error(e);
+                }
+            }
         }
     }
 }

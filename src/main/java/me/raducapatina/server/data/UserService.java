@@ -17,8 +17,7 @@ public class UserService implements Service<User> {
     @Override
     public User findById(Long id) throws Exception {
         try {
-            User user = entityManager.find(User.class, id);
-            return user;
+            return entityManager.find(User.class, id);
         } catch (NoResultException e) {
             logger.error(e);
             return null;
@@ -34,7 +33,14 @@ public class UserService implements Service<User> {
     }
 
     public boolean existsByUsername(String username) throws Exception {
-        return findByUsername(username) != null;
+        User byUsername;
+        try {
+             byUsername = findByUsername(username);
+        } catch (NoResultException e) {
+            return false;
+        }
+
+        return byUsername != null;
     }
 
     @Override
@@ -46,10 +52,10 @@ public class UserService implements Service<User> {
 
 
     @Override
-    public void updateById(Long id) {
-        entityManager.createNamedQuery("User.updateById", User.class)
-                .setParameter("id", id)
-                .executeUpdate();
+    public void update(User element) {
+        entityManager.getTransaction().begin();
+        entityManager.merge(element);
+        entityManager.getTransaction().commit();
     }
 
     @Override

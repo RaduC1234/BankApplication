@@ -1,10 +1,12 @@
 package me.raducapatina.server.core;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import me.raducapatina.server.data.DatabaseManager;
 import me.raducapatina.server.data.User;
 
-import javax.persistence.NoResultException;
 import java.net.SocketAddress;
 
 @Getter
@@ -25,6 +27,6 @@ public class Client {
         if(user == null) {
             return;
         }
-            this.user = DatabaseManager.getInstance().getUserService().findById(getUser().getId());
+            this.user = DatabaseManager.getInstance().getUserService().findById(user.getId());
     }
 }

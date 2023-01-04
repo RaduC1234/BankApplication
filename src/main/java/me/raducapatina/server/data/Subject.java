@@ -2,8 +2,11 @@ package me.raducapatina.server.data;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.Hibernate;
 
 import javax.persistence.*;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Getter
@@ -16,11 +19,19 @@ public class Subject {
     @Column(name = "id", nullable = false)
     private Long id;
 
-   /* @ManyToMany(cascade = CascadeType.DETACH)
-    @JoinTable(
-            name = "Subjects",
-            joinColumns = {@JoinColumn("subject_id")},
-            inverseJoinColumns = {@JoinColumn("users")}
-    )
-    private Set<User> userList;*/
+    @ManyToMany(mappedBy = "subjects")
+    private Set<User> users = new LinkedHashSet<>();
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        Subject subject = (Subject) o;
+        return id != null && Objects.equals(id, subject.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
