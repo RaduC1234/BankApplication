@@ -248,9 +248,8 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 }
 
                 UserService userService = DatabaseManager.getInstance().getUserService();
-                User user;
                 try {
-                    user = userService.findByUsername(packet.getClient().getUser().getUsername());
+                    User user = userService.findByUsername(packet.getClient().getUser().getUsername());
                     packet.setRequestContent(new JsonMapper().convertValue(user, JsonNode.class));
                     packet.sendThis(true);
 
