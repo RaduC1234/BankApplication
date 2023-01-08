@@ -17,7 +17,7 @@ public class UserCommand extends Command {
     public UserCommand() {
         this.name = "user";
         this.description = "Command for basic user management.";
-        this.usage = "user [delete/add] <username> | <password> <Type[STUDENT,TEACHER,ADMIN]>";
+        this.usage = "user [delete/add] <username> | <password> <Type[STUDENT,TEACHER,ADMIN]> | user list ";
     }
 
     @Override

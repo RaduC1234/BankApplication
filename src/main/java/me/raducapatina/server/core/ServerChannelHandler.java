@@ -5,10 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
@@ -161,30 +158,31 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public void sendRequest(String name, ChannelHandlerContext ctx, Object[] params) throws IllegalArgumentException {
+        public ChannelFuture sendRequest(String name, ChannelHandlerContext ctx, Object[] params) throws IllegalArgumentException {
             if (requestsTemplates.get(name) == null)
                 throw new IllegalArgumentException("No request template found with passed name");
             Packet packet = new Packet(name, ctx);
-            requestsTemplates.get(name).onNewRequest(packet, params);
             waitingOutboundPackets.add(packet);
+            return requestsTemplates.get(name).onNewRequest(packet, params);
         }
 
         public interface RequestTemplate {
 
-            void onNewRequest(Packet packet, Object[] params);
+            /**
+             * Called when {@link #sendRequest(String, ChannelHandlerContext, Object[])} is called.
+             * @return an {@link io.netty.channel.ChannelFuture} representing the async task.
+             */
+            default ChannelFuture onNewRequest(Packet packet, Object[] params) {
+                return null;
+            }
 
             void onAnswer(Packet packet);
 
-            void onIncomingRequest(Packet packet);
+            ChannelFuture onIncomingRequest(Packet packet);
         }
 
         @NoArgsConstructor
         public static class Authentication implements RequestTemplate {
-
-            @Override
-            public void onNewRequest(Packet packet, Object[] params) {
-
-            }
 
             @Override
             public void onAnswer(Packet packet) {
@@ -194,7 +192,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
             //todo: fix SQL injection
             @Override
-            public void onIncomingRequest(Packet packet) {
+            public ChannelFuture onIncomingRequest(Packet packet) {
                 String username = packet.getRequestContent().get("username").asText();
                 String password = packet.getRequestContent().get("password").asText();
 
@@ -206,12 +204,12 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
                 } catch (NoResultException e) {
                     packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
-                    return;
+                     return null;
 
                 } catch (Exception e) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
                     logger.error(e);
-                    return;
+                    return null;
                 }
 
                 if (user.getPassword().equals(password)) {
@@ -220,20 +218,15 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                     logger.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
                             .replace("{0}", client.getAddress().toString())
                             .replace("{1}", user.getUsername()));
-                    packet.sendSuccess();
-                    return;
+                    return packet.sendSuccess();
                 }
 
-                packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD); // invalid password
+                return packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD); // invalid password
             }
         }
 
         public static class GetSelfInfo implements RequestTemplate {
 
-            @Override
-            public void onNewRequest(Packet packet, Object[] params) {
-
-            }
 
             @Override
             public void onAnswer(Packet packet) {
@@ -241,24 +234,24 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             }
 
             @Override
-            public void onIncomingRequest(Packet packet) {
+            public ChannelFuture onIncomingRequest(Packet packet) {
                 if (!packet.getClient().isAuthenticated()) {
                     packet.sendError(Packet.PACKET_CODES.NOT_AUTHENTICATED);
-                    return;
+                    return null;
                 }
 
                 UserService userService = DatabaseManager.getInstance().getUserService();
                 try {
                     User user = userService.findByUsername(packet.getClient().getUser().getUsername());
                     packet.setRequestContent(new JsonMapper().convertValue(user, JsonNode.class));
-                    packet.sendThis(true);
+                    return packet.sendThis(true);
 
                 } catch (NoResultException e) {
-                    packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
+                    return packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
 
                 } catch (Exception e) {
-                    packet.sendError(Packet.PACKET_CODES.ERROR);
                     logger.error(e);
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
             }
         }
