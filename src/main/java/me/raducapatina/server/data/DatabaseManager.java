@@ -22,6 +22,10 @@ public class DatabaseManager {
         return new UserService(getEntityManager());
     }
 
+    public ArticleService getArticleService() {
+        return new ArticleService(getEntityManager());
+    }
+
     public Query createSQLNativeQuery(String query) {
        return getEntityManager().createNativeQuery(query);
     }

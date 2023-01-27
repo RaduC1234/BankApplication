@@ -1,5 +1,7 @@
 package me.raducapatina.server.util;
 
+import me.raducapatina.server.data.Article;
+import me.raducapatina.server.data.Grade;
 import me.raducapatina.server.data.Subject;
 import me.raducapatina.server.data.User;
 import org.apache.logging.log4j.LogManager;
@@ -10,6 +12,7 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.hibernate.service.ServiceRegistry;
 
+import javax.persistence.Entity;
 import java.util.Properties;
 
 public class HibernateUtil {
@@ -35,6 +38,8 @@ public class HibernateUtil {
             configuration.setProperties(settings);
             configuration.addAnnotatedClass(User.class);
             configuration.addAnnotatedClass(Subject.class);
+            configuration.addAnnotatedClass(Article.class);
+            configuration.addAnnotatedClass(Grade.class);
 
             logger.info("Hibernate Configuration loaded");
 
@@ -46,7 +51,7 @@ public class HibernateUtil {
             return sessionFactory;
         } catch (Throwable ex) {
 
-            logger.error("Initial SessionFactory creation failed." + ex);
+            logger.fatal("Initial SessionFactory creation failed." + ex);
             throw new ExceptionInInitializerError(ex);
         }
     }

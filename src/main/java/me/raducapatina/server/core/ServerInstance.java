@@ -7,6 +7,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import lombok.AccessLevel;
 import lombok.Getter;
+import me.raducapatina.server.command.ArticleCommand;
 import me.raducapatina.server.command.StopCommand;
 import me.raducapatina.server.command.UserCommand;
 import me.raducapatina.server.command.core.CommandHandler;
@@ -38,7 +39,8 @@ public class ServerInstance {
 
         commandHandler = new CommandHandler()
                 .addCommand(new StopCommand(this))
-                .addCommand(new UserCommand());
+                .addCommand(new UserCommand())
+                .addCommand(new ArticleCommand());
 
         commandHandler.listen();
 

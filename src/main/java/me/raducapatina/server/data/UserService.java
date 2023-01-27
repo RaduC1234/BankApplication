@@ -6,6 +6,9 @@ import org.apache.logging.log4j.Logger;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
+import javax.persistence.Transient;
+import javax.transaction.Transactional;
+import java.util.List;
 
 @AllArgsConstructor
 public class UserService implements Service<User> {
@@ -26,10 +29,9 @@ public class UserService implements Service<User> {
 
     public User findByUsername(String username) throws Exception {
 
-        User user = entityManager.createNamedQuery("User.findByUsername", User.class)
+        return entityManager.createNamedQuery("User.findByUsername", User.class)
                 .setParameter("username", username)
                 .getSingleResult();
-        return user;
     }
 
     public boolean existsByUsername(String username) throws Exception {
@@ -83,5 +85,11 @@ public class UserService implements Service<User> {
         entityManager.getTransaction().commit();
         return true;
 
+    }
+
+    @Transactional
+    public List<User> getAllUsers() {
+        List<User> resultList = entityManager.createQuery("select u from User u", User.class).getResultList();
+        return resultList;
     }
 }

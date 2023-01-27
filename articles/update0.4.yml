@@ -1,0 +1,9 @@
+title: Update 0.4 has arrived.
+imagePath: null
+tag: Development Team
+tagColorValue: 282c34
+content: 'An update to Edu App has been released. The major changes include:
+  > Created a network service for the client and server.
+  > Added SQL support with javax.persistence. 
+  > Added backend support for Articles
+'

@@ -88,8 +88,9 @@ public class Packet {
         REQUEST_SYNTAX_ERROR,
 
         NOT_AUTHENTICATED,
+        ACCESS_FORBIDDEN,
         USER_IN_USE,
         USER_NOT_FOUND,
-        INVALID_PASSWORD,
+        INVALID_PASSWORD, NOT_IMPLEMENTED,
     }
 }

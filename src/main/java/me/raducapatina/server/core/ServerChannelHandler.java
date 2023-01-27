@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
@@ -12,9 +13,7 @@ import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import lombok.NoArgsConstructor;
-import me.raducapatina.server.data.DatabaseManager;
-import me.raducapatina.server.data.User;
-import me.raducapatina.server.data.UserService;
+import me.raducapatina.server.data.*;
 import me.raducapatina.server.util.ResourceServerMessages;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -44,14 +43,16 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
         this.channelHandler = new RequestChannelHandler();
         this.channelHandler
                 .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication())
-                .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo());
+                .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo())
+                .addRequestTemplate("GET_ARTICLES", new RequestChannelHandler.GetMainPageArticles())
+                .addRequestTemplate("ADMIN_READ_USERS", new RequestChannelHandler.AdminReadUsers());
     }
 
     @Override
     protected void initChannel(SocketChannel socketChannel) throws Exception {
 
         ChannelPipeline pipeline = socketChannel.pipeline();
-        pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
+        pipeline.addLast(new DelimiterBasedFrameDecoder(2097152, Delimiters.lineDelimiter()));
         pipeline.addLast(new StringDecoder());
         pipeline.addLast(new StringEncoder());
 
@@ -170,24 +171,23 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
             /**
              * Called when {@link #sendRequest(String, ChannelHandlerContext, Object[])} is called.
+             *
              * @return an {@link io.netty.channel.ChannelFuture} representing the async task.
              */
             default ChannelFuture onNewRequest(Packet packet, Object[] params) {
                 return null;
             }
 
-            void onAnswer(Packet packet);
+            default void onAnswer(Packet packet) {
+                packet.sendError(Packet.PACKET_CODES.ERROR);
+                logger.error("Unknown request.");
+            }
 
             ChannelFuture onIncomingRequest(Packet packet);
         }
 
         @NoArgsConstructor
         public static class Authentication implements RequestTemplate {
-
-            @Override
-            public void onAnswer(Packet packet) {
-
-            }
 
 
             //todo: fix SQL injection
@@ -204,7 +204,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
                 } catch (NoResultException e) {
                     packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
-                     return null;
+                    return null;
 
                 } catch (Exception e) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
@@ -226,7 +226,6 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
         }
 
         public static class GetSelfInfo implements RequestTemplate {
-
 
             @Override
             public void onAnswer(Packet packet) {
@@ -253,6 +252,108 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                     logger.error(e);
                     return packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
+            }
+        }
+
+        public static class GetMainPageArticles implements RequestTemplate {
+
+            @Override
+            public void onAnswer(Packet packet) {
+
+            }
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+
+                ArticleService service = DatabaseManager.getInstance().getArticleService();
+                try {
+                    ArrayNode array = new ObjectMapper().valueToTree(service.getAllArticles());
+
+                    packet.setRequestContent(new ObjectMapper().createObjectNode().set("articles", array));
+
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+            }
+        }
+
+        public static class AdminReadUsers implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
+                return RequestTemplate.super.onNewRequest(packet, params);
+            }
+
+            @Override
+            public void onAnswer(Packet packet) {
+                RequestTemplate.super.onAnswer(packet);
+            }
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                UserService service = DatabaseManager.getInstance().getUserService();
+
+                List<User> allUsers = service.getAllUsers();
+
+                ObjectMapper mapper = new ObjectMapper();
+                ArrayNode array = mapper.valueToTree(allUsers);
+                JsonNode result = mapper.createObjectNode().set("users", array);
+
+                packet.setRequestContent(result);
+
+                try {
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e);
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+            }
+        }
+
+        public static class AdminAddUser implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
+                return RequestTemplate.super.onNewRequest(packet, params);
+            }
+
+            @Override
+            public void onAnswer(Packet packet) {
+                RequestTemplate.super.onAnswer(packet);
+            }
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                return packet.sendError(Packet.PACKET_CODES.NOT_IMPLEMENTED);
+            }
+        }
+
+        public static class AdminDeleteUser implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
+                return RequestTemplate.super.onNewRequest(packet, params);
+            }
+
+            @Override
+            public void onAnswer(Packet packet) {
+                RequestTemplate.super.onAnswer(packet);
+            }
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                return packet.sendError(Packet.PACKET_CODES.NOT_IMPLEMENTED);
             }
         }
     }

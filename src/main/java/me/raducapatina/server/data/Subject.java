@@ -14,6 +14,7 @@ import java.util.Set;
 @Entity
 @Table(name = "subjects")
 public class Subject {
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", nullable = false)

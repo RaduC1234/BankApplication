@@ -39,6 +39,9 @@ public class User implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "subjects_id"))
     private Set<Subject> subjects = new LinkedHashSet<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<Grade> grades = new LinkedHashSet<>();
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
