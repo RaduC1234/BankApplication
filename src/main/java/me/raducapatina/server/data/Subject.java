@@ -20,7 +20,7 @@ public class Subject {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @ManyToMany(mappedBy = "subjects")
+    @ManyToMany(mappedBy = "subjects", fetch = FetchType.LAZY)
     private Set<User> users = new LinkedHashSet<>();
 
     @Override

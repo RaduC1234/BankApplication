@@ -33,13 +33,13 @@ public class User implements Serializable {
     @Enumerated(EnumType.STRING)
     private UserType type;
 
-    @ManyToMany(cascade = CascadeType.DETACH)
+    @ManyToMany(cascade = CascadeType.DETACH, fetch = FetchType.LAZY)
     @JoinTable(name = "users_subjects",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "subjects_id"))
     private Set<Subject> subjects = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<Grade> grades = new LinkedHashSet<>();
 
     @Override
