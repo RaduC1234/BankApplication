@@ -128,11 +128,12 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
         public void onMessage(ChannelHandlerContext channelHandlerContext, String message) {
             try {
-                Packet receivedPacket = new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(message, Packet.class);
+                Packet receivedPacket = new ObjectMapper()
+                        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                        .readValue(message, Packet.class);
                 receivedPacket.setChannelHandlerContext(channelHandlerContext);
                 receivedPacket.setClient(getClientByRemoteAddress(channelHandlerContext.channel().remoteAddress()));
 
-                // check if the packet is an answer to an inbound request
                 if (receivedPacket.getRequestStatus()) {
                     for (Packet packet : waitingOutboundPackets) {
                         if (packet.getRequestId() == receivedPacket.getRequestId()) {
@@ -141,13 +142,11 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                             return;
                         }
                     }
-                    // throw error: no request found
                     logger.error("No request found with id provided.");
+                    return;
                 }
 
-                // packet is a new request at this point
                 if (requestsTemplates.get(receivedPacket.getRequestName()) == null) {
-                    // throw error: no request with this name found
                     logger.error("Invalid request name: " + receivedPacket.getRequestName());
                     return;
                 }
@@ -158,6 +157,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 logger.error(e.getMessage());
             }
         }
+
 
         public ChannelFuture sendRequest(String name, ChannelHandlerContext ctx, Object[] params) throws IllegalArgumentException {
             if (requestsTemplates.get(name) == null)
