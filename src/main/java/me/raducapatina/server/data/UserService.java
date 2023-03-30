@@ -89,7 +89,6 @@ public class UserService implements Service<User> {
 
     @Transactional
     public List<User> getAllUsers() {
-        List<User> resultList = entityManager.createQuery("select u from User u", User.class).getResultList();
-        return resultList;
+        return entityManager.createQuery("select u from User u", User.class).getResultList();
     }
 }

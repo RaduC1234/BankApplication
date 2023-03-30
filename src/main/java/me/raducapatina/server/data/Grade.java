@@ -22,10 +22,11 @@ public class Grade {
     @Column(name = "notes")
     private String notes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY) // do not remove this to prevent loading loops
     @JoinColumn(name = "user_id")
     private User user;
 
-    @OneToOne
-    private User teacher;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)  // do not remove this to prevent loading loops
+    @JoinColumn(name = "subject_id", nullable = false)
+    private Subject subject;
 }

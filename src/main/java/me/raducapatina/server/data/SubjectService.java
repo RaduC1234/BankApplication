@@ -6,6 +6,8 @@ import org.apache.logging.log4j.Logger;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
+import javax.transaction.Transactional;
+import java.util.List;
 
 @AllArgsConstructor
 public class SubjectService implements Service<Subject> {
@@ -50,5 +52,10 @@ public class SubjectService implements Service<Subject> {
         entityManager.getTransaction().commit();
         return true;
 
+    }
+
+    @Transactional
+    public List<Subject> getAllSubjects() {
+        return entityManager.createQuery("select u from Subject u", Subject.class).getResultList();
     }
 }

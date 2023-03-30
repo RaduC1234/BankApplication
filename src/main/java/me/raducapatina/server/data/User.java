@@ -30,16 +30,22 @@ public class User implements Serializable {
     private String password;
 
     @Column(nullable = false)
+    private String firstName;
+
+    @Column(nullable = false)
+    private String lastName;
+
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private UserType type;
 
-    @ManyToMany(cascade = CascadeType.DETACH, fetch = FetchType.LAZY)
+    @ManyToMany(cascade = CascadeType.DETACH)
     @JoinTable(name = "users_subjects",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "subjects_id"))
     private Set<Subject> subjects = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<Grade> grades = new LinkedHashSet<>();
 
     @Override

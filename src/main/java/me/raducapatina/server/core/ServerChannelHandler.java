@@ -45,7 +45,12 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication())
                 .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo())
                 .addRequestTemplate("GET_ARTICLES", new RequestChannelHandler.GetMainPageArticles())
-                .addRequestTemplate("ADMIN_READ_USERS", new RequestChannelHandler.AdminReadUsers());
+                .addRequestTemplate("ADMIN_ADD_USERS", new RequestChannelHandler.AdminAddUsers())
+                .addRequestTemplate("ADMIN_GET_USERS", new RequestChannelHandler.AdminGetUsers())
+                .addRequestTemplate("ADMIN_DELETE_USERS", new RequestChannelHandler.AdminDeleteUsers())
+
+                .addRequestTemplate("ADMIN_ADD_SUBJECTS", new RequestChannelHandler.AdminAddSubjects())
+                .addRequestTemplate("ADMIN_GET_SUBJECTS", new RequestChannelHandler.AdminGetSubjects());
     }
 
     @Override
@@ -69,7 +74,6 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
             @Override
             protected void channelRead0(ChannelHandlerContext channelHandlerContext, String s) throws Exception {
-                //new MessageChannel(channelHandlerContext).sendMessage(s);
                 logger.log(MESSAGE, channelHandlerContext.channel().remoteAddress().toString() + " says " + s);
                 channelHandler.onMessage(channelHandlerContext, s);
             }
@@ -161,7 +165,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
         public ChannelFuture sendRequest(String name, ChannelHandlerContext ctx, Object[] params) throws IllegalArgumentException {
             if (requestsTemplates.get(name) == null)
-                throw new IllegalArgumentException("No request template found with passed name");
+                throw new IllegalArgumentException("No request template found with passed name + '" + name + "'");
             Packet packet = new Packet(name, ctx);
             waitingOutboundPackets.add(packet);
             return requestsTemplates.get(name).onNewRequest(packet, params);
@@ -279,7 +283,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminReadUsers implements RequestTemplate {
+        public static class AdminGetUsers implements RequestTemplate {
 
             @Override
             public ChannelFuture onNewRequest(Packet packet, Object[] params) {
@@ -315,7 +319,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminAddUser implements RequestTemplate {
+        public static class AdminAddUsers implements RequestTemplate {
 
             @Override
             public ChannelFuture onNewRequest(Packet packet, Object[] params) {
@@ -332,11 +336,35 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
-                return packet.sendError(Packet.PACKET_CODES.NOT_IMPLEMENTED);
+                UserService userService = DatabaseManager.getInstance().getUserService();
+
+                User user = new User();
+                JsonNode requestContent = packet.getRequestContent();
+                user.setUsername(requestContent.get("username").asText());
+                user.setPassword(requestContent.get("password").asText());
+                user.setFirstName(requestContent.get("firstName").asText());
+                user.setLastName(requestContent.get("lastName").asText());
+
+                switch (requestContent.get("type").asText()) {
+                    case "Admin" -> {
+                        user.setType(UserType.ADMIN);
+                    }
+                    case "Teacher" -> {
+                        user.setType(UserType.TEACHER);
+                    }
+                    default -> {
+                        user.setType(UserType.STUDENT);
+                    }
+                }
+
+                userService.add(user);
+
+                logger.info("New user + '" + user.getUsername() + "' by '" + packet.getClient().getUser().getUsername() + "'.");
+                return packet.sendSuccess();
             }
         }
 
-        public static class AdminDeleteUser implements RequestTemplate {
+        public static class AdminDeleteUsers implements RequestTemplate {
 
             @Override
             public ChannelFuture onNewRequest(Packet packet, Object[] params) {
@@ -353,7 +381,89 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
-                return packet.sendError(Packet.PACKET_CODES.NOT_IMPLEMENTED);
+                UserService service = DatabaseManager.getInstance().getUserService();
+
+                try {
+                    long id = packet.getRequestContent().get("id").asLong();
+                    User user = service.findById(id);
+                    service.deleteById(id);
+
+                    logger.info("User '" + user.getUsername() + "' with id '" + id + "' deleted by user '" + packet.getClient().getUser().getUsername() + "'.");
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                }
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+            }
+        }
+
+        public static class AdminAddSubjects implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
+                return RequestTemplate.super.onNewRequest(packet, params);
+            }
+
+            @Override
+            public void onAnswer(Packet packet) {
+                RequestTemplate.super.onAnswer(packet);
+            }
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+
+                SubjectService subjectService = DatabaseManager.getInstance().getSubjectService();
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                try {
+                    String name = packet.getRequestContent().get("name").toString();
+                    User teacher = userService.findById(packet.getRequestContent().get("teacher").asLong());
+                    subjectService.add(new Subject(name, teacher));
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND);
+                    logger.error(e.getMessage());
+                }
+
+                return packet.sendError(Packet.PACKET_CODES.ERROR);
+            }
+        }
+
+        public static class AdminGetSubjects implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
+                return RequestTemplate.super.onNewRequest(packet, params);
+            }
+
+            @Override
+            public void onAnswer(Packet packet) {
+                RequestTemplate.super.onAnswer(packet);
+            }
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                SubjectService service = DatabaseManager.getInstance().getSubjectService();
+
+                List<Subject> allSubjects = service.getAllSubjects();
+
+                ObjectMapper mapper = new ObjectMapper();
+                ArrayNode array = mapper.valueToTree(allSubjects);
+                JsonNode result = mapper.createObjectNode().set("subjects", array);
+
+                packet.setRequestContent(result);
+
+                try {
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e);
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
             }
         }
     }

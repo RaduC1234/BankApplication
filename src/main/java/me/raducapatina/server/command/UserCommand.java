@@ -17,7 +17,7 @@ public class UserCommand extends Command {
     public UserCommand() {
         this.name = "user";
         this.description = "Command for basic user management.";
-        this.usage = "user [delete/add] <username> | <password> <Type[STUDENT,TEACHER,ADMIN]> | user list ";
+        this.usage = "user [delete/add] <username> <firstName> <lastName> | <password> <Type[STUDENT,TEACHER,ADMIN]> | user list ";
     }
 
     @Override
@@ -29,7 +29,9 @@ public class UserCommand extends Command {
                 User user = new User();
                 user.setUsername(args[2]);
                 user.setPassword(args[3]);
-                user.setType(UserType.valueOf(args[4]));
+                user.setFirstName(args[4]);
+                user.setLastName(args[5]);
+                user.setType(UserType.valueOf(args[6]));
 
                 UserService userService = DatabaseManager.getInstance().getUserService();
 
