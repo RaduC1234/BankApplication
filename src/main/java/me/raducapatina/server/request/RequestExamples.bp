@@ -1,0 +1,5 @@
+## AUTHENTICATION
+{"requestName": "AUTHENTICATION", "requestStatus": 0, "requestId": "0000", "requestContent" : {"username" : "radu1234","password" : "1234"}} client-->server
+
+{"requestName": "AUTHENTICATION", "requestStatus": 1, "requestId": "0000", "responseStats" : 0 "responseContent" : {"message" : 000}} server-->client
+{"requestName": "AUTHENTICATION", "requestStatus": 1, "requestId": "0000", "responseStats" : 1 "responseContent" : {"message" : 000}} server-->client

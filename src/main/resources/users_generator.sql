@@ -18,7 +18,7 @@ INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (115
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (116, 'trevor.t', 'secret123', 'Trevor', 'Taylor', 'TEACHER');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (117, 'uma.u', '1234', 'Uma', 'Underwood', 'STUDENT');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (118, 'maria.muresan', 'pass123', 'Maria', 'Muresan', 'TEACHER');
-INSERT INTO users(id, username , password, firstName, lastName, type) VALUES (119, 'john.doe', 'secret', 'John', 'Doe', 'STUDENT');
+INSERT INTO users(id, username ,password, firstName, lastName, type) VALUES (119, 'john.doe', 'secret', 'John', 'Doe', 'STUDENT');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (120, 'jane.doe', 'password', 'Jane', 'Doe', 'STUDENT');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (121, 'david.smith', 'davidsmith', 'David', 'Smith', 'TEACHER');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (122, 'alexandra.popescu', 'alexa123', 'Alexandra', 'Popescu', 'STUDENT');
@@ -27,4 +27,3 @@ INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (124
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (125, 'paul.ionescu', 'paul123', 'Paul', 'Ionescu', 'STUDENT');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (126, 'ana.popa', 'ana456', 'Ana', 'Popa', 'STUDENT');
 INSERT INTO users(id, username, password, firstName, lastName, type) VALUES (127, 'cristina.nistor', 'crisnistor', 'Cristina', 'Nistor', 'TEACHER');
-

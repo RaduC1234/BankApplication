@@ -1,11 +1,14 @@
 package me.raducapatina.server.core;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
@@ -30,19 +33,19 @@ import java.util.Map;
 /**
  * @author Radu 1/11/22
  */
-public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
+public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
 
-    private static final Logger logger = LogManager.getLogger(ServerChannelHandler.class);
+    private static final Logger logger = LogManager.getLogger(ServerNetworkService.class);
     private static final Level MESSAGE = Level.forName("MESSAGE", 450);
 
     private final ServerInstance instance;
     private final RequestChannelHandler channelHandler;
 
-    public ServerChannelHandler(ServerInstance instance) {
+    public ServerNetworkService(ServerInstance instance) {
         this.instance = instance;
         this.channelHandler = new RequestChannelHandler();
         this.channelHandler
-                .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication())
+                .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication(instance.getConnectedClients()))
                 .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo())
                 .addRequestTemplate("GET_ARTICLES", new RequestChannelHandler.GetMainPageArticles())
                 .addRequestTemplate("ADMIN_ADD_USERS", new RequestChannelHandler.AdminAddUsers())
@@ -50,7 +53,8 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("ADMIN_DELETE_USERS", new RequestChannelHandler.AdminDeleteUsers())
 
                 .addRequestTemplate("ADMIN_ADD_SUBJECTS", new RequestChannelHandler.AdminAddSubjects())
-                .addRequestTemplate("ADMIN_GET_SUBJECTS", new RequestChannelHandler.AdminGetSubjects());
+                .addRequestTemplate("ADMIN_GET_SUBJECTS", new RequestChannelHandler.AdminGetSubjects())
+                .addRequestTemplate("ADMIN_GET_TEACHERS", new RequestChannelHandler.AdminGetTeachers());
     }
 
     @Override
@@ -190,8 +194,14 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             ChannelFuture onIncomingRequest(Packet packet);
         }
 
-        @NoArgsConstructor
+
         public static class Authentication implements RequestTemplate {
+
+            private List<Client> connectedClients;
+
+            public Authentication(List<Client> list) {
+                this.connectedClients = list;
+            }
 
 
             //todo: fix SQL injection
@@ -199,33 +209,37 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             public ChannelFuture onIncomingRequest(Packet packet) {
                 String username = packet.getRequestContent().get("username").asText();
                 String password = packet.getRequestContent().get("password").asText();
-
                 Client client = packet.getClient();
                 UserService userService = DatabaseManager.getInstance().getUserService();
-                User user;
+
                 try {
-                    user = userService.findByUsername(username);
+                    User user = userService.findByUsername(username);
+
+                    // Check if the user is already connected
+                    for (Client connectedClient : connectedClients) {
+                        if (connectedClient.getUser() != null && connectedClient.getUser().getUsername().equals(username)) {
+                            return packet.sendError(Packet.PACKET_CODES.USER_IN_USE);
+                        }
+                    }
+
+                    // Authenticate the user
+                    if (user.getPassword().equals(password)) {
+                        client.setAuthenticated(true);
+                        client.setUser(user);
+                        logger.info("Client '{0}' authenticated with username '{1}'"
+                                .replace("{0}", client.getAddress().toString())
+                                .replace("{1}", user.getUsername()));
+                        return packet.sendSuccess();
+                    } else {
+                        return packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD);
+                    }
 
                 } catch (NoResultException e) {
-                    packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND); // user does not exist
-                    return null;
-
+                    return packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND);
                 } catch (Exception e) {
-                    packet.sendError(Packet.PACKET_CODES.ERROR);
                     logger.error(e);
-                    return null;
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
-
-                if (user.getPassword().equals(password)) {
-                    client.setAuthenticated(true);
-                    client.setUser(user);
-                    logger.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
-                            .replace("{0}", client.getAddress().toString())
-                            .replace("{1}", user.getUsername()));
-                    return packet.sendSuccess();
-                }
-
-                return packet.sendError(Packet.PACKET_CODES.INVALID_PASSWORD); // invalid password
             }
         }
 
@@ -302,15 +316,14 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 }
                 UserService service = DatabaseManager.getInstance().getUserService();
 
-                List<User> allUsers = service.getAllUsers();
-
-                ObjectMapper mapper = new ObjectMapper();
-                ArrayNode array = mapper.valueToTree(allUsers);
-                JsonNode result = mapper.createObjectNode().set("users", array);
-
-                packet.setRequestContent(result);
-
                 try {
+                    List<User> allUsers = service.getAllUsers();
+
+                    ObjectMapper mapper = new ObjectMapper();
+                    ArrayNode array = mapper.valueToTree(allUsers);
+                    JsonNode result = mapper.createObjectNode().set("users", array);
+
+                    packet.setRequestContent(result);
                     return packet.sendThis(true);
                 } catch (Exception e) {
                     logger.error(e);
@@ -393,7 +406,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 } catch (Exception e) {
                     logger.error(e.getMessage());
                 }
-                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                return packet.sendError(Packet.PACKET_CODES.ERROR);
             }
         }
 
@@ -445,6 +458,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
+                System.out.println("dsadasdas");
                 if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
@@ -452,13 +466,49 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
                 List<Subject> allSubjects = service.getAllSubjects();
 
-                ObjectMapper mapper = new ObjectMapper();
-                ArrayNode array = mapper.valueToTree(allSubjects);
-                JsonNode result = mapper.createObjectNode().set("subjects", array);
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE); //turn off everything
+                    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY); // only use fields
+                    ArrayNode array = mapper.valueToTree(allSubjects);
+                    JsonNode result = mapper.createObjectNode().set("subjects", array);
 
-                packet.setRequestContent(result);
+                    packet.setRequestContent(result);
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e);
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+            }
+        }
+
+        public static class AdminGetTeachers implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                UserService service = DatabaseManager.getInstance().getUserService();
 
                 try {
+                    List<User> allUsers = service.getAllUsers();
+
+                    // Filter users of type TEACHERS
+                    List<User> teachers = allUsers.stream()
+                            .filter(user -> user.getType() == UserType.TEACHER).toList();
+
+                    ObjectMapper mapper = new ObjectMapper();
+                    ArrayNode array = mapper.valueToTree(teachers);
+                    JsonNode result = mapper.createObjectNode().set("teachers", array);
+
+                    for (JsonNode node : result.get("teachers")) {
+                        ((ObjectNode) node).remove("subjects");
+                        ((ObjectNode) node).remove("grades");
+                        ((ObjectNode) node).remove("password");
+                    }
+
+                    packet.setRequestContent(result);
                     return packet.sendThis(true);
                 } catch (Exception e) {
                     logger.error(e);

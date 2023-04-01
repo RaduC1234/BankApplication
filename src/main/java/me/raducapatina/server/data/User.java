@@ -1,14 +1,20 @@
 package me.raducapatina.server.data;
 
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.Hibernate;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
+
+// to prevent chain reference
+@JsonIdentityInfo(generator = ObjectIdGenerators.IntSequenceGenerator.class, property = "id")
 
 @Getter
 @Setter
@@ -39,10 +45,7 @@ public class User implements Serializable {
     @Enumerated(EnumType.STRING)
     private UserType type;
 
-    @ManyToMany(cascade = CascadeType.DETACH)
-    @JoinTable(name = "users_subjects",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "subjects_id"))
+    @OneToMany(mappedBy = "users", fetch = FetchType.LAZY)
     private Set<Subject> subjects = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)

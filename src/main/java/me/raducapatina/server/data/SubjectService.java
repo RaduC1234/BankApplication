@@ -27,6 +27,7 @@ public class SubjectService implements Service<Subject> {
     }
 
     @Override
+    @Transactional
     public void add(Subject element) throws Exception {
         entityManager.getTransaction().begin();
         entityManager.persist(element);
