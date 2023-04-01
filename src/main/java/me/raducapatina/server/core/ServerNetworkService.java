@@ -1,5 +1,7 @@
 package me.raducapatina.server.core;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,19 +32,19 @@ import java.util.Map;
 /**
  * @author Radu 1/11/22
  */
-public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
+public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
 
-    private static final Logger logger = LogManager.getLogger(ServerChannelHandler.class);
+    private static final Logger logger = LogManager.getLogger(ServerNetworkService.class);
     private static final Level MESSAGE = Level.forName("MESSAGE", 450);
 
     private final ServerInstance instance;
     private final RequestChannelHandler channelHandler;
 
-    public ServerChannelHandler(ServerInstance instance) {
+    public ServerNetworkService(ServerInstance instance) {
         this.instance = instance;
         this.channelHandler = new RequestChannelHandler();
         this.channelHandler
-                .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication())
+                .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication(instance))
                 .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo())
                 .addRequestTemplate("GET_ARTICLES", new RequestChannelHandler.GetMainPageArticles())
                 .addRequestTemplate("ADMIN_ADD_USERS", new RequestChannelHandler.AdminAddUsers())
@@ -190,9 +192,14 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
             ChannelFuture onIncomingRequest(Packet packet);
         }
 
-        @NoArgsConstructor
+
         public static class Authentication implements RequestTemplate {
 
+            private ServerInstance instance;
+
+            public Authentication(ServerInstance instance) {
+                this.instance = instance;
+            }
 
             //todo: fix SQL injection
             @Override
@@ -216,10 +223,16 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                     return null;
                 }
 
+                // if the user is in use
+               /* for (int i = 0; i < instance.getConnectedClients().size(); i++) {
+                    if(instance.getConnectedClients().get(i).getUser().getUsername().equals(username))
+                        return packet.sendError(Packet.PACKET_CODES.USER_IN_USE);
+                }*/
+
                 if (user.getPassword().equals(password)) {
                     client.setAuthenticated(true);
                     client.setUser(user);
-                    logger.info(ResourceServerMessages.getObjectAsString("core.clientAuthenticated")
+                    logger.info("Client {0} authenticated with username {1}"
                             .replace("{0}", client.getAddress().toString())
                             .replace("{1}", user.getUsername()));
                     return packet.sendSuccess();
@@ -393,7 +406,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
                 } catch (Exception e) {
                     logger.error(e.getMessage());
                 }
-                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                return packet.sendError(Packet.PACKET_CODES.ERROR);
             }
         }
 
@@ -445,6 +458,7 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
+                System.out.println("dsadasdas");
                 if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
@@ -452,13 +466,14 @@ public class ServerChannelHandler extends ChannelInitializer<SocketChannel> {
 
                 List<Subject> allSubjects = service.getAllSubjects();
 
-                ObjectMapper mapper = new ObjectMapper();
-                ArrayNode array = mapper.valueToTree(allSubjects);
-                JsonNode result = mapper.createObjectNode().set("subjects", array);
-
-                packet.setRequestContent(result);
-
                 try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE); //turn off everything
+                    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY); // only use fields
+                    ArrayNode array = mapper.valueToTree(allSubjects);
+                    JsonNode result = mapper.createObjectNode().set("subjects", array);
+
+                    packet.setRequestContent(result);
                     return packet.sendThis(true);
                 } catch (Exception e) {
                     logger.error(e);

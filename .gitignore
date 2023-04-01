@@ -4,3 +4,5 @@
 /Server.code-workspace
 /src/main/resources/img.jpg
 /src/main/java/me/raducapatina/server/packet/RequestExamples.bp
+
+/out
