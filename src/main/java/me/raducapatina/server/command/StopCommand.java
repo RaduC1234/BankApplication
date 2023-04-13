@@ -11,8 +11,8 @@ public class StopCommand extends Command {
     public StopCommand(ServerInstance serverInstance) {
         this.serverInstance = serverInstance;
         this.name = "stop";
-        this.usage = ResourceServerMessages.getObjectAsString("command.stop.usage"); // stop
-        this.description = ResourceServerMessages.getObjectAsString("command.stop.description"); // Stops the server.
+        this.usage = "stop";
+        this.description = "Stopping server";
     }
 
     @Override

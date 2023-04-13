@@ -48,12 +48,15 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("AUTHENTICATION", new RequestChannelHandler.Authentication(instance.getConnectedClients()))
                 .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo())
                 .addRequestTemplate("GET_ARTICLES", new RequestChannelHandler.GetMainPageArticles())
+
                 .addRequestTemplate("ADMIN_ADD_USERS", new RequestChannelHandler.AdminAddUsers())
                 .addRequestTemplate("ADMIN_GET_USERS", new RequestChannelHandler.AdminGetUsers())
                 .addRequestTemplate("ADMIN_DELETE_USERS", new RequestChannelHandler.AdminDeleteUsers())
 
                 .addRequestTemplate("ADMIN_ADD_SUBJECTS", new RequestChannelHandler.AdminAddSubjects())
                 .addRequestTemplate("ADMIN_GET_SUBJECTS", new RequestChannelHandler.AdminGetSubjects())
+                .addRequestTemplate("ADMIN_DELETE_SUBJECTS", new RequestChannelHandler.AdminDeleteSubjects())
+
                 .addRequestTemplate("ADMIN_GET_TEACHERS", new RequestChannelHandler.AdminGetTeachers());
     }
 
@@ -246,11 +249,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         public static class GetSelfInfo implements RequestTemplate {
 
             @Override
-            public void onAnswer(Packet packet) {
-
-            }
-
-            @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
                 if (!packet.getClient().isAuthenticated()) {
                     packet.sendError(Packet.PACKET_CODES.NOT_AUTHENTICATED);
@@ -276,11 +274,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         public static class GetMainPageArticles implements RequestTemplate {
 
             @Override
-            public void onAnswer(Packet packet) {
-
-            }
-
-            @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
 
                 ArticleService service = DatabaseManager.getInstance().getArticleService();
@@ -298,16 +291,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         }
 
         public static class AdminGetUsers implements RequestTemplate {
-
-            @Override
-            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
-                return RequestTemplate.super.onNewRequest(packet, params);
-            }
-
-            @Override
-            public void onAnswer(Packet packet) {
-                RequestTemplate.super.onAnswer(packet);
-            }
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -333,16 +316,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         }
 
         public static class AdminAddUsers implements RequestTemplate {
-
-            @Override
-            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
-                return RequestTemplate.super.onNewRequest(packet, params);
-            }
-
-            @Override
-            public void onAnswer(Packet packet) {
-                RequestTemplate.super.onAnswer(packet);
-            }
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -380,16 +353,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         public static class AdminDeleteUsers implements RequestTemplate {
 
             @Override
-            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
-                return RequestTemplate.super.onNewRequest(packet, params);
-            }
-
-            @Override
-            public void onAnswer(Packet packet) {
-                RequestTemplate.super.onAnswer(packet);
-            }
-
-            @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
                 if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
@@ -411,16 +374,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         }
 
         public static class AdminAddSubjects implements RequestTemplate {
-
-            @Override
-            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
-                return RequestTemplate.super.onNewRequest(packet, params);
-            }
-
-            @Override
-            public void onAnswer(Packet packet) {
-                RequestTemplate.super.onAnswer(packet);
-            }
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -445,16 +398,6 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         }
 
         public static class AdminGetSubjects implements RequestTemplate {
-
-            @Override
-            public ChannelFuture onNewRequest(Packet packet, Object[] params) {
-                return RequestTemplate.super.onNewRequest(packet, params);
-            }
-
-            @Override
-            public void onAnswer(Packet packet) {
-                RequestTemplate.super.onAnswer(packet);
-            }
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -482,6 +425,29 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
+        private static class AdminDeleteSubjects implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                SubjectService service = DatabaseManager.getInstance().getSubjectService();
+
+                try {
+                    long id = packet.getRequestContent().get("id").asLong();
+                    Subject subject = service.findById(id);
+                    service.deleteById(id);
+
+                    logger.info("User '" + subject.getName() + "' with id '" + id + "' deleted by user '" + packet.getClient().getUser().getUsername() + "'.");
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                }
+                return packet.sendError(Packet.PACKET_CODES.ERROR);
+            }
+        }
+
         public static class AdminGetTeachers implements RequestTemplate {
 
             @Override
@@ -503,6 +469,41 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                     JsonNode result = mapper.createObjectNode().set("teachers", array);
 
                     for (JsonNode node : result.get("teachers")) {
+                        ((ObjectNode) node).remove("subjects");
+                        ((ObjectNode) node).remove("grades");
+                        ((ObjectNode) node).remove("password");
+                    }
+
+                    packet.setRequestContent(result);
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e);
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+            }
+        }
+
+        public static class AdminGetStudents implements RequestTemplate {
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                UserService service = DatabaseManager.getInstance().getUserService();
+
+                try {
+                    List<User> allUsers = service.getAllUsers();
+
+                    // Filter users of type TEACHERS
+                    List<User> students = allUsers.stream()
+                            .filter(user -> user.getType() == UserType.STUDENT).toList();
+
+                    ObjectMapper mapper = new ObjectMapper();
+                    ArrayNode array = mapper.valueToTree(students);
+                    JsonNode result = mapper.createObjectNode().set("students", array);
+
+                    for (JsonNode node : result.get("students")) {
                         ((ObjectNode) node).remove("subjects");
                         ((ObjectNode) node).remove("grades");
                         ((ObjectNode) node).remove("password");

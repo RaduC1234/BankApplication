@@ -45,7 +45,7 @@ public class User implements Serializable {
     @Enumerated(EnumType.STRING)
     private UserType type;
 
-    @OneToMany(mappedBy = "users", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "users", cascade = CascadeType.REFRESH ,fetch = FetchType.LAZY)
     private Set<Subject> subjects = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
