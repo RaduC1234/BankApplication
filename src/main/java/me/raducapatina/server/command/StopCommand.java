@@ -1,10 +1,9 @@
 package me.raducapatina.server.command;
 
-import me.raducapatina.server.command.core.Command;
+import me.raducapatina.server.command.core.ICommand;
 import me.raducapatina.server.core.ServerInstance;
-import me.raducapatina.server.util.ResourceServerMessages;
 
-public class StopCommand extends Command {
+public class StopCommand extends ICommand {
 
     private final ServerInstance serverInstance;
 

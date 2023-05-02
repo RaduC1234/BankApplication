@@ -11,8 +11,8 @@ import me.raducapatina.server.command.ArticleCommand;
 import me.raducapatina.server.command.StopCommand;
 import me.raducapatina.server.command.UserCommand;
 import me.raducapatina.server.command.core.CommandHandler;
+import me.raducapatina.server.network.ServerNetworkService;
 import me.raducapatina.server.util.HibernateUtil;
-import me.raducapatina.server.util.ResourceServerMessages;
 import me.raducapatina.server.util.ResourceServerProperties;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,7 +35,7 @@ public class ServerInstance {
 
     public void start() {
 
-        logger.info(ResourceServerMessages.getObjectAsString("core.startingServer").replace("{0}", String.valueOf(port)));
+        logger.info("Starting server on port {0}...".replace("{0}", String.valueOf(port)));
 
         commandHandler = new CommandHandler()
                 .addCommand(new StopCommand(this))
@@ -65,7 +65,7 @@ public class ServerInstance {
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            logger.info(ResourceServerMessages.getObjectAsString("core.finishedLoading"));
+            logger.info("Server finished loading.");
             b.bind(port).sync().channel().closeFuture().sync();
         } catch (InterruptedException e) {
             stop();
@@ -76,7 +76,7 @@ public class ServerInstance {
     }
 
     public void stop() {
-        logger.info(ResourceServerMessages.getObjectAsString("core.stoppingServer")); // Stopping server...
+        logger.info("Stopping server..."); // Stopping server...
         commandHandler.stop();
         HibernateUtil.getSessionFactory().close();
         System.exit(0);

@@ -6,12 +6,11 @@ import org.apache.logging.log4j.Logger;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
-import javax.persistence.Transient;
 import javax.transaction.Transactional;
 import java.util.List;
 
 @AllArgsConstructor
-public class UserService implements Service<User> {
+public class UserService implements IService<User> {
 
     private static final Logger logger = LogManager.getLogger(UserService.class);
 

@@ -1,8 +1,8 @@
 package me.raducapatina.server.command;
 
-import me.raducapatina.server.command.core.Command;
+import me.raducapatina.server.command.core.ICommand;
 
-public class LoginCommand extends Command {
+public class LoginCommand extends ICommand {
 
     public LoginCommand() {
     }

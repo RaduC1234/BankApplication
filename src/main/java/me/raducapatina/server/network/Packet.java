@@ -1,4 +1,4 @@
-package me.raducapatina.server.core;
+package me.raducapatina.server.network;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -9,6 +9,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import lombok.Getter;
 import lombok.Setter;
+import me.raducapatina.server.core.Client;
 
 import java.util.UUID;
 

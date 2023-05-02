@@ -1,6 +1,6 @@
 package me.raducapatina.server.data;
 
-public interface Service<T> {
+public interface IService<T> {
 
     T findById(Long id) throws Exception;
 

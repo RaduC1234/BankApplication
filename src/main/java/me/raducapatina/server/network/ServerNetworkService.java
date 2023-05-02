@@ -1,4 +1,4 @@
-package me.raducapatina.server.core;
+package me.raducapatina.server.network;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -16,8 +16,9 @@ import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import lombok.NoArgsConstructor;
+import me.raducapatina.server.core.Client;
+import me.raducapatina.server.core.ServerInstance;
 import me.raducapatina.server.data.*;
-import me.raducapatina.server.util.ResourceServerMessages;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -49,6 +50,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("GET_SELF_USER", new RequestChannelHandler.GetSelfInfo())
                 .addRequestTemplate("GET_ARTICLES", new RequestChannelHandler.GetMainPageArticles())
 
+                // ADMIN
                 .addRequestTemplate("ADMIN_ADD_USERS", new RequestChannelHandler.AdminAddUsers())
                 .addRequestTemplate("ADMIN_GET_USERS", new RequestChannelHandler.AdminGetUsers())
                 .addRequestTemplate("ADMIN_DELETE_USERS", new RequestChannelHandler.AdminDeleteUsers())
@@ -57,6 +59,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("ADMIN_GET_SUBJECTS", new RequestChannelHandler.AdminGetSubjects())
                 .addRequestTemplate("ADMIN_DELETE_SUBJECTS", new RequestChannelHandler.AdminDeleteSubjects())
 
+                .addRequestTemplate("ADMIN_GET_STUDENTS", new RequestChannelHandler.AdminGetStudents())
                 .addRequestTemplate("ADMIN_GET_TEACHERS", new RequestChannelHandler.AdminGetTeachers());
     }
 
@@ -72,7 +75,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
 
             @Override
             public void channelActive(ChannelHandlerContext ctx) throws Exception {
-                logger.info(ResourceServerMessages.getObjectAsString("core.clientConnected").replace("{0}",
+                logger.info("New client connected with ip: {0}.".replace("{0}",
                         ctx.channel().remoteAddress().toString()));
                 Client client = new Client();
                 client.setAddress((InetSocketAddress) ctx.channel().remoteAddress());
@@ -90,7 +93,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 ctx.close();
                 Client client = getClientByRemoteAddress(ctx.channel().remoteAddress());
                 instance.getConnectedClients().remove(client);
-                logger.info(ResourceServerMessages.getObjectAsString("core.clientDisconnectedReason")
+                logger.info("Client {0} disconnected. Reason: {1}."
                         .replace("{0}",
                                 (client.isAuthenticated() ? client.getUser().getUsername()
                                         : ctx.channel().remoteAddress().toString()))
@@ -128,11 +131,11 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
     @NoArgsConstructor
     private class RequestChannelHandler {
 
-        private Map<String, RequestTemplate> requestsTemplates = new HashMap<>();
+        private Map<String, IRequest> requestsTemplates = new HashMap<>();
         private List<Packet> waitingOutboundPackets = new ArrayList<>();
 
 
-        public RequestChannelHandler addRequestTemplate(String name, RequestTemplate template) {
+        public RequestChannelHandler addRequestTemplate(String name, IRequest template) {
             requestsTemplates.put(name, template);
             return this;
         }
@@ -178,7 +181,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             return requestsTemplates.get(name).onNewRequest(packet, params);
         }
 
-        public interface RequestTemplate {
+        public interface IRequest {
 
             /**
              * Called when {@link #sendRequest(String, ChannelHandlerContext, Object[])} is called.
@@ -198,7 +201,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
         }
 
 
-        public static class Authentication implements RequestTemplate {
+        public static class Authentication implements IRequest {
 
             private List<Client> connectedClients;
 
@@ -246,7 +249,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class GetSelfInfo implements RequestTemplate {
+        public static class GetSelfInfo implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -271,7 +274,8 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class GetMainPageArticles implements RequestTemplate {
+        @Deprecated
+        public static class GetMainPageArticles implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -290,7 +294,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminGetUsers implements RequestTemplate {
+        public static class AdminGetUsers implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -315,7 +319,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminAddUsers implements RequestTemplate {
+        public static class AdminAddUsers implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -350,7 +354,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminDeleteUsers implements RequestTemplate {
+        public static class AdminDeleteUsers implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -373,7 +377,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminAddSubjects implements RequestTemplate {
+        public static class AdminAddSubjects implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -397,7 +401,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminGetSubjects implements RequestTemplate {
+        public static class AdminGetSubjects implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -425,7 +429,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        private static class AdminDeleteSubjects implements RequestTemplate {
+        private static class AdminDeleteSubjects implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -448,7 +452,7 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminGetTeachers implements RequestTemplate {
+        public static class AdminGetTeachers implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
@@ -483,24 +487,28 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
             }
         }
 
-        public static class AdminGetStudents implements RequestTemplate {
+        public static class AdminGetStudents implements IRequest {
 
             @Override
             public ChannelFuture onIncomingRequest(Packet packet) {
                 if (!packet.getClient().getUser().getType().equals(UserType.ADMIN)) {
                     packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
-                UserService service = DatabaseManager.getInstance().getUserService();
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                SubjectService subjectService = DatabaseManager.getInstance().getSubjectService();
 
                 try {
-                    List<User> allUsers = service.getAllUsers();
+                    List<User> users = userService.getAllUsers();
 
-                    // Filter users of type TEACHERS
-                    List<User> students = allUsers.stream()
-                            .filter(user -> user.getType() == UserType.STUDENT).toList();
+                    long subjectId = packet.getRequestContent().get("subject").asLong();
+
+                    // remove all students that are already enrolled to the subject + the teacher
+                    users.removeAll(subjectService.findById(subjectId).getUsers());
+                    users = users.stream().filter(user -> user.getType() == UserType.STUDENT).toList();
+
 
                     ObjectMapper mapper = new ObjectMapper();
-                    ArrayNode array = mapper.valueToTree(students);
+                    ArrayNode array = mapper.valueToTree(users);
                     JsonNode result = mapper.createObjectNode().set("students", array);
 
                     for (JsonNode node : result.get("students")) {

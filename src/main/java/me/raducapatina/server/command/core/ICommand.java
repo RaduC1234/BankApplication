@@ -1,6 +1,6 @@
 package me.raducapatina.server.command.core;
 
-public abstract class Command {
+public abstract class ICommand {
 
     public String name = null;
 

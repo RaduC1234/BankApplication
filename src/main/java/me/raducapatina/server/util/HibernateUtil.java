@@ -12,7 +12,6 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.hibernate.service.ServiceRegistry;
 
-import javax.persistence.Entity;
 import java.util.Properties;
 
 public class HibernateUtil {

@@ -8,6 +8,8 @@ import lombok.Setter;
 
 import javax.persistence.*;
 
+@Deprecated
+
 @Getter
 @Setter
 @AllArgsConstructor

@@ -14,8 +14,10 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
+@Deprecated
+
 @AllArgsConstructor
-public class ArticleService implements Service<Article> {
+public class ArticleService implements IService<Article> {
 
     private static final Logger logger = LogManager.getLogger(ArticleService.class);
 

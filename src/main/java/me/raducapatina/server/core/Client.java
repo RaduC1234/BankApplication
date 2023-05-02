@@ -23,7 +23,7 @@ public class Client {
     /**
      * @throws Exception if the user does not exit in the database. Very unlikely.
      */
-    public void reloadUser() throws Exception {
+    public void reload() throws Exception {
         if(user == null) {
             return;
         }

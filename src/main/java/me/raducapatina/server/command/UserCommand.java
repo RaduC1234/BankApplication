@@ -1,6 +1,6 @@
 package me.raducapatina.server.command;
 
-import me.raducapatina.server.command.core.Command;
+import me.raducapatina.server.command.core.ICommand;
 import me.raducapatina.server.data.DatabaseManager;
 import me.raducapatina.server.data.User;
 import me.raducapatina.server.data.UserService;
@@ -10,7 +10,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 
-public class UserCommand extends Command {
+public class UserCommand extends ICommand {
 
     private static final Logger logger = LogManager.getLogger(UserCommand.class);
 

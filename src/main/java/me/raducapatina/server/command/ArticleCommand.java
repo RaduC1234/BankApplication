@@ -2,7 +2,7 @@ package me.raducapatina.server.command;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import me.raducapatina.server.command.core.Command;
+import me.raducapatina.server.command.core.ICommand;
 import me.raducapatina.server.data.Article;
 import me.raducapatina.server.data.ArticleService;
 import me.raducapatina.server.data.DatabaseManager;
@@ -11,7 +11,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 
-public class ArticleCommand extends Command {
+public class ArticleCommand extends ICommand {
 
     private static final Logger logger = LogManager.getLogger(ArticleCommand.class);
 

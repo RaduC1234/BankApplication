@@ -17,19 +17,19 @@ public class CommandHandler {
     private static final Logger logger = LogManager.getLogger(CommandHandler.class);
 
     private ExecutorService service = Executors.newSingleThreadExecutor();
-    private List<Command> commands;
+    private List<ICommand> commands;
 
     public CommandHandler() {
         commands = new ArrayList<>();
     }
 
-    public CommandHandler addCommand(Command command) {
+    public CommandHandler addCommand(ICommand command) {
         commands.add(command);
         return this;
     }
 
-    public CommandHandler addCommands(Command... commands) {
-        for (Command command : commands)
+    public CommandHandler addCommands(ICommand... commands) {
+        for (ICommand command : commands)
             addCommand(command);
         return this;
     }
@@ -46,7 +46,7 @@ public class CommandHandler {
 
                 boolean commandFound = false;
 
-                for (Command command : commands) {
+                for (ICommand command : commands) {
                     if (consoleLine.startsWith(command.name)) {
                         commandFound = true;
                         command.input = consoleLine;
@@ -59,7 +59,7 @@ public class CommandHandler {
                 }
                 if (consoleLine.startsWith("help")) {
                     StringBuilder row = new StringBuilder();
-                    for (Command command : commands) {
+                    for (ICommand command : commands) {
                         row.append(command.name).append(" -> ").append(command.usage).append("\n");
                     }
                     logger.info(ResourceServerMessages.getObjectAsString("command.help.listAll").replace("{0}", row));
@@ -72,7 +72,7 @@ public class CommandHandler {
 
             }
         });
-        return null;
+        return this;
     }
 
     public void stop() {
@@ -83,7 +83,7 @@ public class CommandHandler {
         return !service.isTerminated();
     }
 
-    public List<Command> getCommands() {
+    public List<ICommand> getCommands() {
         return commands;
     }
 

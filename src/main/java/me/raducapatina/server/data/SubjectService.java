@@ -10,7 +10,7 @@ import javax.transaction.Transactional;
 import java.util.List;
 
 @AllArgsConstructor
-public class SubjectService implements Service<Subject> {
+public class SubjectService implements IService<Subject> {
 
     private static final Logger logger = LogManager.getLogger(UserService.class);
 
