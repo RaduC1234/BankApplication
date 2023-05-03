@@ -60,7 +60,9 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("ADMIN_DELETE_SUBJECTS", new RequestChannelHandler.AdminDeleteSubjects())
 
                 .addRequestTemplate("ADMIN_GET_STUDENTS", new RequestChannelHandler.AdminGetStudents())
-                .addRequestTemplate("ADMIN_GET_TEACHERS", new RequestChannelHandler.AdminGetTeachers());
+                .addRequestTemplate("ADMIN_GET_TEACHERS", new RequestChannelHandler.AdminGetTeachers())
+
+                .addRequestTemplate("ADMIN_ADD_STUDENT_TO_SUBJECT", new RequestChannelHandler.AdminAddUserToSubject());
     }
 
     @Override
@@ -390,7 +392,16 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 try {
                     String name = packet.getRequestContent().get("name").toString();
                     User teacher = userService.findById(packet.getRequestContent().get("teacher").asLong());
-                    subjectService.add(new Subject(name, teacher));
+                    User clone = new User();
+                    clone.setId(teacher.getId());
+                    clone.setUsername(teacher.getUsername());
+                    clone.setPassword(teacher.getPassword());
+                    clone.setSubjects(teacher.getSubjects());
+                    clone.setGrades(teacher.getGrades());
+                    clone.setFirstName(teacher.getFirstName());
+                    clone.setLastName(teacher.getLastName());
+
+                    subjectService.add(new Subject(name, clone));
                     return packet.sendThis(true);
                 } catch (Exception e) {
                     packet.sendError(Packet.PACKET_CODES.USER_NOT_FOUND);
@@ -523,6 +534,29 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                     logger.error(e);
                     return packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
+            }
+        }
+
+        public static class AdminAddUserToSubject implements IRequest {
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                SubjectService subjectService = DatabaseManager.getInstance().getSubjectService();
+
+                try {
+                    User user = userService.findById(packet.getRequestContent().get("userId").asLong());
+                    Subject subject = subjectService.findById(packet.getRequestContent().get("subjectId").asLong());
+
+                    subject.addUser(user);
+                    subjectService.update(subject);
+
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+
             }
         }
     }
