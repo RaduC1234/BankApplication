@@ -62,7 +62,11 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                 .addRequestTemplate("ADMIN_GET_STUDENTS", new RequestChannelHandler.AdminGetStudents())
                 .addRequestTemplate("ADMIN_GET_TEACHERS", new RequestChannelHandler.AdminGetTeachers())
 
-                .addRequestTemplate("ADMIN_ADD_STUDENT_TO_SUBJECT", new RequestChannelHandler.AdminAddUserToSubject());
+                .addRequestTemplate("ADMIN_ADD_STUDENT_TO_SUBJECT", new RequestChannelHandler.AdminAddUserToSubject())
+
+                // TEACHER
+                .addRequestTemplate("TEACHER_MAIN_PAGE", new RequestChannelHandler.TeacherMainPage())
+                .addRequestTemplate("TEACHER_LOAD_SUBJECT", new RequestChannelHandler.TeacherMainPage.TeacherLoadSubject());
     }
 
     @Override
@@ -557,6 +561,67 @@ public class ServerNetworkService extends ChannelInitializer<SocketChannel> {
                     return packet.sendError(Packet.PACKET_CODES.ERROR);
                 }
 
+            }
+        }
+
+        public static class TeacherMainPage implements IRequest {
+
+            @Override
+            public ChannelFuture onIncomingRequest(Packet packet) {
+                if (!packet.getClient().getUser().getType().equals(UserType.TEACHER)) {
+                    packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+                UserService userService = DatabaseManager.getInstance().getUserService();
+                SubjectService subjectService = DatabaseManager.getInstance().getSubjectService();
+
+                try {
+
+                    List<Subject> allSubjects = subjectService.getAllSubjects();
+                    List<Subject> usersSubject = new ArrayList<>();
+
+                    User user = userService.findById(packet.getClient().getUser().getId());
+
+                    for (Subject subject : allSubjects) {
+                        if (subject.getUsers().contains(user))
+                            usersSubject.add(subject);
+                    }
+
+                    ObjectMapper mapper = new ObjectMapper();
+                    mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE); //turn off everything
+                    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY); // only use fields
+                    ArrayNode array = mapper.valueToTree(usersSubject);
+                    JsonNode result = mapper.createObjectNode().set("subjects", array);
+
+                    packet.setRequestContent(result);
+                    return packet.sendThis(true);
+                } catch (Exception e) {
+                    logger.error(e);
+                    return packet.sendError(Packet.PACKET_CODES.ERROR);
+                }
+            }
+
+            public static class TeacherLoadSubject implements IRequest {
+
+                @Override
+                public ChannelFuture onIncomingRequest(Packet packet) {
+                    if (!packet.getClient().getUser().getType().equals(UserType.TEACHER)) {
+                        packet.sendError(Packet.PACKET_CODES.ERROR);
+                    }
+
+                    SubjectService service = DatabaseManager.getInstance().getSubjectService();
+
+                    long id = packet.getRequestContent().get("id").asLong();
+
+                    try {
+                        Subject subject = service.findById(id);
+                        JsonNode result = new ObjectMapper().valueToTree(subject);
+                        packet.setRequestContent(result);
+                        return packet.sendThis(true);
+                    } catch (Exception e) {
+                        logger.error(e);
+                        return packet.sendError(Packet.PACKET_CODES.ERROR);
+                    }
+                }
             }
         }
     }
